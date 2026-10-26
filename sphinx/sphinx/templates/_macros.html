@@ -1,0 +1,59 @@
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+{% macro field(name, label, type='text', value='', required=False, help='', error='', autocomplete='', maxlength='') %}
+<div class="field">
+  <label for="{{ name }}">{{ label }}{% if required %} <span class="req" aria-hidden="true">*</span>{% endif %}</label>
+  {% if help %}<p class="help" id="{{ name }}-help">{{ help }}</p>{% endif %}
+  <input id="{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value if value is not none else '' }}"{% if required %} required{% endif %}{% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if maxlength %} maxlength="{{ maxlength }}"{% endif %}
+    {% if help or error %} aria-describedby="{% if help %}{{ name }}-help{% endif %} {% if error %}{{ name }}-err{% endif %}"{% endif %}{% if error %} aria-invalid="true"{% endif %}>
+  {% if error %}<p class="error" id="{{ name }}-err" role="alert">{{ t(error) }}</p>{% endif %}
+</div>
+{% endmacro %}
+{% macro area(name, label, value='', rows=4, help='', error='', required=False, maxlength='') %}
+<div class="field">
+  <label for="{{ name }}">{{ label }}</label>
+  {% if help %}<p class="help" id="{{ name }}-help">{{ help }}</p>{% endif %}
+  <textarea id="{{ name }}" name="{{ name }}" rows="{{ rows }}"{% if required %} required{% endif %}{% if maxlength %} maxlength="{{ maxlength }}"{% endif %}{% if help %} aria-describedby="{{ name }}-help"{% endif %}{% if error %} aria-invalid="true"{% endif %}>{{ value if value is not none else '' }}</textarea>
+  {% if error %}<p class="error" role="alert">{{ t(error) }}</p>{% endif %}
+</div>
+{% endmacro %}
+{% macro select(name, label, options, selected='', error='', blank='') %}
+<div class="field">
+  <label for="{{ name }}">{{ label }}</label>
+  <select id="{{ name }}" name="{{ name }}"{% if error %} aria-invalid="true"{% endif %}>
+    {% if blank %}<option value="">{{ blank }}</option>{% endif %}
+    {% for val, text in options %}<option value="{{ val }}"{% if val|string == selected|string %} selected{% endif %}>{{ text }}</option>{% endfor %}
+  </select>
+  {% if error %}<p class="error" role="alert">{{ t(error) }}</p>{% endif %}
+</div>
+{% endmacro %}
+{% macro bar(pct, label) %}<progress value="{{ pct }}" max="100" aria-label="{{ label }}">{{ pct }}%</progress>{% endmacro %}
+{% macro pager(page, pages, endpoint) %}
+{% if pages > 1 %}<nav class="pager" aria-label="{{ t('pager.label') }}">
+  {% if page > 1 %}<a class="btn secondary small" href="{{ url_for(endpoint, **dict(request.args.to_dict(), pagina=page-1)) }}">{{ t('pager.prev') }}</a>{% endif %}
+  <span>{{ t('pager.of', page=page, pages=pages) }}</span>
+  {% if page < pages %}<a class="btn secondary small" href="{{ url_for(endpoint, **dict(request.args.to_dict(), pagina=page+1)) }}">{{ t('pager.next') }}</a>{% endif %}
+</nav>{% endif %}
+{% endmacro %}
+{% macro course_card(c, pr=None) %}
+<article class="card course-card c-{{ c.color }}">
+  <p class="muted small"><span aria-hidden="true">{{ c.icon }}</span> {{ c.subject_name }}</p>
+  <h3><a href="{{ url_for('learn.course', slug=c.slug) }}">{{ c.title }}</a></h3>
+  <p>{{ c.description }}</p>
+  <p class="row"><span class="tag">{{ t('level.' ~ c.level) }}</span><span class="tag">{{ t('difficulty.' ~ c.difficulty) }}</span><span class="tag">{{ t('course.minutes', n=c.est_minutes) }}</span></p>
+  {% if pr and pr.started %}{{ bar(pr.percent, t('course.progress')) }}<p class="small muted">{{ t('course.progress_pct', pct=pr.percent) }}</p>
+  <a class="btn small" href="{{ url_for('learn.course', slug=c.slug) }}">{{ t('course.continue') if not pr.completed else t('course.review') }}</a>
+  {% else %}<a class="btn small secondary" href="{{ url_for('learn.course', slug=c.slug) }}">{{ t('course.view') }}</a>{% endif %}
+</article>
+{% endmacro %}
+{% macro block(b) %}
+{% set d = b.data %}
+{% if b.type == 'text' %}<section class="block">{% if d.title %}<h3>{{ d.title }}</h3>{% endif %}{{ d.body|rich }}</section>
+{% elif b.type == 'example' %}<section class="block card"><h3>{{ t('block.example') }}{% if d.title %}: {{ d.title }}{% endif %}</h3><p>{{ d.problem }}</p>
+  <ol class="steps">{% for s in d.steps %}<li>{{ s }}</li>{% endfor %}</ol><p class="answer">{{ t('block.answer') }}: {{ d.answer }}</p></section>
+{% elif b.type == 'tip' %}<aside class="block tip"><strong>{{ t('block.tip') }}.</strong> {{ d.body|rich }}</aside>
+{% elif b.type == 'mistakes' %}<section class="block mistakes"><h3>{{ t('block.mistakes') }}</h3><ul>{% for i in d["items"] %}<li>{{ i }}</li>{% endfor %}</ul></section>
+{% elif b.type == 'summary' %}<section class="block summary"><h3>{{ t('block.summary') }}</h3><ul>{% for i in d["items"] %}<li>{{ i }}</li>{% endfor %}</ul></section>
+{% elif b.type == 'flashcards' %}<section class="block"><h3>{{ t('block.flashcards') }}</h3><p class="muted small">{{ t('block.flashcards_help') }}</p>
+  <div class="flashcards" data-flashcards>{% for c in d.cards %}<button type="button" class="flashcard"><strong class="front">{{ c.front }}</strong><span class="back">{{ c.back }}</span></button>{% endfor %}</div></section>
+{% endif %}
+{% endmacro %}

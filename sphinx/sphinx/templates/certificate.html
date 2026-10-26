@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}{{ t('cert.title') }}{% endblock %}
+{% block content %}<h1>{{ t('cert.title') }}</h1>
+<div class="card"><p>{{ t('cert.awarded') }}</p><p class="stat">{{ cert.display_name }}</p><p>{{ t('cert.completed') }}</p><h2>{{ cert.course_title }}</h2>
+<p>{{ t('results.score') }}: {{ '%.0f'|format(cert.score_pct) }}% · {{ t('cert.date') }}: {{ cert.issued_at[:10] }}</p>
+<p>{{ t('cert.code') }}: <strong>{{ cert.code }}</strong></p><p class="muted small">{{ t('cert.verify_at') }}: {{ verify_url }}</p>
+<p class="muted small">{{ t('cert.disclaimer') }}</p>
+<a class="btn" href="{{ url_for('student.certificate_pdf', code=cert.code) }}">{{ t('cert.download') }}</a></div>{% endblock %}

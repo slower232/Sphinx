@@ -1,0 +1,6 @@
+{% extends 'base.html' %}{% block title %}{{ t('adm.dashboard') }}{% endblock %}
+{% block content %}<h1>{{ t('adm.title') }}</h1>{% include 'admin/_nav.html' %}
+<p class="muted">{{ t('adm.aggregate_note') }}</p>
+<div class="grid">{% for k in ('students','guests','published','drafts','attempts','lessons_done','certs') %}<div class="card"><p class="stat">{{ stats[k] }}</p><p>{{ t('adm.stat.' ~ k) }}</p></div>{% endfor %}</div>
+<h2>{{ t('adm.per_course') }}</h2><div class="table-wrap"><table><thead><tr><th>{{ t('adm.course') }}</th><th>{{ t('adm.enrolled') }}</th><th>{{ t('adm.completed') }}</th><th>{{ t('adm.avg_final') }}</th></tr></thead><tbody>
+{% for c in per_course %}<tr><td>{{ c.title }}</td><td>{{ c.enrolled }}</td><td>{{ c.completed }}</td><td>{{ c.avg_final if c.avg_final is not none else '—' }}</td></tr>{% endfor %}</tbody></table></div>{% endblock %}

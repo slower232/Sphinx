@@ -1,0 +1,23 @@
+{% extends 'base.html' %}{% from '_macros.html' import course_card %}
+{% block content %}
+<section class="hero">
+  <h1>{{ t('home.title') }}</h1>
+  <p>{{ t('home.lead') }}</p>
+  <p class="row"><a class="btn" href="{{ url_for('learn.goals') }}">{{ t('home.cta_start') }}</a><a class="btn secondary" href="{{ url_for('learn.courses') }}">{{ t('home.cta_browse') }}</a></p>
+</section>
+<section aria-labelledby="how"><h2 id="how">{{ t('home.how') }}</h2>
+  <div class="grid">
+    <div class="card"><h3>1. {{ t('home.step1_t') }}</h3><p>{{ t('home.step1') }}</p></div>
+    <div class="card"><h3>2. {{ t('home.step2_t') }}</h3><p>{{ t('home.step2') }}</p></div>
+    <div class="card"><h3>3. {{ t('home.step3_t') }}</h3><p>{{ t('home.step3') }}</p></div>
+  </div></section>
+<section aria-labelledby="subj"><h2 id="subj">{{ t('home.subjects') }}</h2>
+  <div class="grid">{% for s in subjects %}<a class="card course-card u-plain c-{{ s.color }}" href="{{ url_for('learn.courses', materia=s.slug) }}">
+    <h3><span aria-hidden="true">{{ s.icon }}</span> {{ s.name }}</h3><p>{{ s.description }}</p><p class="muted small">{{ t('home.n_courses', n=s.n_courses) }}</p></a>{% endfor %}</div></section>
+{% if featured %}<section aria-labelledby="feat"><h2 id="feat">{{ t('home.featured') }}</h2>
+  <div class="grid">{% for c in featured %}{{ course_card(c) }}{% endfor %}</div></section>{% endif %}
+<section aria-labelledby="pers"><h2 id="pers">{{ t('home.personal_t') }}</h2><p>{{ t('home.personal') }}</p></section>
+<section aria-labelledby="free" class="card"><h2 id="free">{{ t('home.free_t') }}</h2><p>{{ t('home.free') }}</p>
+  <p class="muted">{{ t('home.not_school') }}</p>
+  <p><a href="{{ url_for('auth.register') }}">{{ t('home.optional_account') }}</a></p></section>
+{% endblock %}

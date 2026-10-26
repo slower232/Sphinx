@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf %}{% block title %}{{ t('adm.courses') }}{% endblock %}
+{% block content %}<h1>{{ t('adm.courses') }}</h1>{% include 'admin/_nav.html' %}
+<p><a class="btn" href="{{ url_for('admin.course_new') }}">{{ t('adm.new_course') }}</a></p>
+<div class="table-wrap"><table><thead><tr><th>{{ t('adm.course') }}</th><th>{{ t('adm.status') }}</th><th>{{ t('adm.lessons') }}</th><th>{{ t('adm.actions') }}</th></tr></thead><tbody>
+{% for c in courses %}<tr><td><a href="{{ url_for('admin.course_edit', course_id=c.id) }}">{{ c.title }}</a>{% if c.is_demo %} <span class="tag">{{ t('course.demo') }}</span>{% endif %}<br><span class="muted small">{{ c.subject_name }} · v{{ c.version }}</span></td>
+<td><span class="tag {{ 'ok' if c.status == 'published' else '' }}">{{ t('status.' ~ c.status) }}</span></td><td>{{ c.n_lessons }}</td>
+<td class="row"><a class="btn secondary small" href="{{ url_for('learn.course', slug=c.slug) }}">{{ t('adm.preview') }}</a>
+{% if c.status == 'published' %}<form method="post" action="{{ url_for('admin.course_status', course_id=c.id) }}">{{ csrf() }}<input type="hidden" name="action" value="unpublish"><button class="btn secondary small" type="submit">{{ t('adm.unpublish') }}</button></form>
+{% elif c.status == 'draft' %}<form method="post" action="{{ url_for('admin.course_status', course_id=c.id) }}">{{ csrf() }}<input type="hidden" name="action" value="publish"><button class="btn small" type="submit">{{ t('adm.publish') }}</button></form>{% endif %}
+{% if c.status != 'archived' %}<form method="post" action="{{ url_for('admin.course_status', course_id=c.id) }}" data-confirm="{{ t('adm.confirm_archive') }}">{{ csrf() }}<input type="hidden" name="action" value="archive"><button class="btn secondary small" type="submit">{{ t('adm.archive') }}</button></form>
+{% else %}<form method="post" action="{{ url_for('admin.course_status', course_id=c.id) }}">{{ csrf() }}<input type="hidden" name="action" value="restore"><button class="btn secondary small" type="submit">{{ t('adm.restore') }}</button></form>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% endblock %}

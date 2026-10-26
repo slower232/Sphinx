@@ -1,0 +1,12 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf, field %}
+{% block title %}{{ t('nav.register') }}{% endblock %}
+{% block content %}<h1>{{ t('nav.register') }}</h1><p>{{ t('auth.register_lead') }}</p>
+<form method="post" novalidate>{{ csrf() }}
+{{ field('alias', t('auth.alias'), value=values.get('alias',''), required=True, help=t('auth.alias_help'), error=errors.get('alias',''), autocomplete='username', maxlength=30) }}
+{{ field('email', t('auth.email_optional'), 'email', value=values.get('email',''), help=t('auth.email_help'), error=errors.get('email',''), autocomplete='email', maxlength=120) }}
+{{ field('password', t('auth.password'), 'password', required=True, help=t('auth.password_help'), error=errors.get('password',''), autocomplete='new-password') }}
+{{ field('password2', t('auth.password2'), 'password', required=True, error=errors.get('password2',''), autocomplete='new-password') }}
+{% if can_adopt %}<label class="check"><input type="checkbox" name="adopt" value="1" checked><span>{{ t('auth.adopt') }}</span></label>{% endif %}
+<div class="field"><label class="check"><input type="checkbox" name="consent" value="1" required{% if errors.get('consent') %} aria-invalid="true"{% endif %}><span>{{ t('auth.consent') }} <a href="{{ url_for('public.privacy') }}">{{ t('footer.privacy') }}</a></span></label>
+{% if errors.get('consent') %}<p class="error" role="alert">{{ t(errors['consent']) }}</p>{% endif %}</div>
+<button class="btn" type="submit">{{ t('nav.register') }}</button></form>{% endblock %}

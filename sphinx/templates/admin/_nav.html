@@ -1,0 +1,3 @@
+<nav class="row noprint u-mb" aria-label="{{ t('adm.nav') }}">
+{% for ep, key in (('admin.dashboard','adm.dashboard'),('admin.courses','adm.courses'),('admin.questions','adm.questions'),('admin.assessments_list','adm.assessments'),('admin.taxonomy','adm.taxonomy'),('admin.users','adm.users'),('admin.settings','adm.settings'),('admin.audit_log','adm.audit')) %}
+<a class="btn small {{ '' if request.endpoint == ep else 'secondary' }}" href="{{ url_for(ep) }}">{{ t(key) }}</a>{% endfor %}</nav>

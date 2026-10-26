@@ -1,0 +1,18 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf, field, area %}{% block title %}{{ t('adm.questions') }}{% endblock %}
+{% block content %}<h1>{{ t('adm.questions') }}{% if q %} #{{ q.id }}{% endif %}</h1>{% include 'admin/_nav.html' %}
+<form method="post" novalidate>{{ csrf() }}
+<div class="field"><label for="kind">{{ t('adm.q.kind') }}</label><select id="kind" name="kind" data-type-select>{% for k in kinds %}<option value="{{ k }}"{% if v.get('kind') == k %} selected{% endif %}>{{ t('qkind.' ~ k) }}</option>{% endfor %}</select></div>
+{{ area('prompt', t('adm.q.prompt'), v.get('prompt',''), 4, help=t('adm.q.prompt_help'), error=errors.get('prompt','')) }}
+<div data-types="mcq"><fieldset class="field"><legend>{{ t('adm.q.options') }}</legend>{% if errors.get('options') %}<p class="error" role="alert">{{ t(errors['options']) }}</p>{% endif %}
+{% for i in range(4) %}<div class="row"><input type="radio" name="correct" value="{{ i }}" id="c{{ i }}" aria-label="{{ t('adm.q.correct') }} {{ i+1 }}"{% if v.get('correct') == i|string %} checked{% endif %}><label class="sr-only" for="o{{ i }}">{{ t('adm.q.option') }} {{ i+1 }}</label><input class="u-w30" type="text" id="o{{ i }}" name="opt{{ i }}" value="{{ v.get('opt' ~ i, '') }}" maxlength="300"></div>{% endfor %}</fieldset></div>
+<div data-types="tf"><fieldset class="field"><legend>{{ t('adm.q.correct') }}</legend>{% if errors.get('options') %}<p class="error" role="alert">{{ t(errors['options']) }}</p>{% endif %}
+<label class="check"><input type="radio" name="tf_correct" value="true"{% if v.get('tf_correct') == 'true' %} checked{% endif %}><span>Verdadero</span></label><label class="check"><input type="radio" name="tf_correct" value="false"{% if v.get('tf_correct') == 'false' %} checked{% endif %}><span>Falso</span></label></fieldset></div>
+<div data-types="numeric">{{ field('answer', t('adm.q.answer'), value=v.get('answer',''), help=t('adm.q.answer_help'), error=errors.get('answer','')) }}{{ field('tolerance', t('adm.q.tolerance'), value=v.get('tolerance','0')) }}</div>
+<div data-types="short">{{ area('accepted', t('adm.q.accepted'), v.get('accepted',''), 3, help=t('adm.q.accepted_help'), error=errors.get('accepted','')) }}</div>
+<div data-types="match">{{ area('pairs', t('adm.q.pairs'), v.get('pairs',''), 4, help=t('adm.q.pairs_help'), error=errors.get('pairs','')) }}</div>
+{{ area('explanation', t('adm.q.explanation'), v.get('explanation',''), 3) }}
+<div class="field"><label for="competency_id">{{ t('results.comp') }}</label><select id="competency_id" name="competency_id"{% if errors.get('competency_id') %} aria-invalid="true"{% endif %}>{% for c in comps %}<option value="{{ c.id }}"{% if v.get('competency_id')|string == c.id|string %} selected{% endif %}>{{ c.subject }} – {{ c.name }}</option>{% endfor %}</select></div>
+<div class="field"><label for="lesson_id">{{ t('adm.q.lesson') }}</label><select id="lesson_id" name="lesson_id"><option value="">—</option>{% for l in lessons %}<option value="{{ l.id }}"{% if v.get('lesson_id')|string == l.id|string %} selected{% endif %}>{{ l.course }} – {{ l.title }}</option>{% endfor %}</select></div>
+{{ field('difficulty', t('courses.difficulty'), 'number', v.get('difficulty',1)) }}{{ field('points', t('adm.q.points'), 'number', v.get('points',1)) }}
+<button class="btn" type="submit">{{ t('adm.save') }}</button></form>
+{% if q %}<form class="u-mt" method="post" action="{{ url_for('admin.question_delete', qid=q.id) }}" data-confirm="{{ t('adm.confirm_delete') }}">{{ csrf() }}<button class="btn danger" type="submit">{{ t('adm.delete') }}</button></form>{% endif %}{% endblock %}

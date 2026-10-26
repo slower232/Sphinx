@@ -1,0 +1,13 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf, field, area %}{% block title %}{{ l.title }}{% endblock %}
+{% block content %}<p><a href="{{ url_for('admin.course_edit', course_id=l.course_id) }}">← {{ l.course_title }}</a></p><h1>{{ l.title }}</h1>
+<form method="post">{{ csrf() }}{{ field('title', t('adm.f.title'), value=l.title, required=True, maxlength=120) }}{{ area('summary', t('adm.f.summary'), l.summary, 2) }}{{ field('est_minutes', t('adm.f.minutes'), 'number', l.est_minutes) }}
+<button class="btn" type="submit">{{ t('adm.save') }}</button></form>
+<form method="post" data-confirm="{{ t('adm.confirm_delete') }}" class="row u-mt-s">{{ csrf() }}<button class="btn secondary small" name="action" value="up" type="submit">↑</button><button class="btn secondary small" name="action" value="down" type="submit">↓</button><button class="btn danger small" name="action" value="delete" type="submit">{{ t('adm.delete_lesson') }}</button></form>
+{% if quiz %}<p><a class="btn secondary" href="{{ url_for('admin.assessment_edit', aid=quiz.id) }}">{{ t('adm.edit_quiz') }}</a></p>{% endif %}
+<h2>{{ t('adm.blocks') }}</h2>
+{% for b in blocks %}<div class="card row u-mb-s u-between"><span><span class="tag">{{ t('btype.' ~ b.row.type) }}</span> {{ (b.data.get('title') or b.data.get('body') or b.data.get('problem') or '')[:70] }}</span>
+<a class="btn secondary small" href="{{ url_for('admin.block_edit', block_id=b.row.id) }}">{{ t('adm.edit') }}</a></div>{% else %}<p class="muted">{{ t('adm.no_blocks') }}</p>{% endfor %}
+<h3>{{ t('adm.add_block') }}</h3>
+<form method="post" action="{{ url_for('admin.block_add', lesson_id=l.id) }}">{{ csrf() }}
+<div class="field"><label for="type">{{ t('adm.b.type') }}</label><select id="type" name="type" data-type-select>{% for ty in types %}<option value="{{ ty }}">{{ t('btype.' ~ ty) }}</option>{% endfor %}</select></div>
+{% include 'admin/_block_fields.html' %}<button class="btn" type="submit">{{ t('adm.add') }}</button></form>{% endblock %}

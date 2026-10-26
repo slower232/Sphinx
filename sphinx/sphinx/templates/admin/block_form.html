@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf %}{% block title %}{{ t('btype.' ~ b.type) }}{% endblock %}
+{% block content %}<p><a href="{{ url_for('admin.lesson_edit', lesson_id=b.lesson_id) }}">← {{ t('adm.blocks') }}</a></p><h1>{{ t('btype.' ~ b.type) }}</h1>
+<form method="post">{{ csrf() }}<input type="hidden" name="type" value="{{ b.type }}"><select data-type-select hidden><option value="{{ b.type }}" selected></option></select>
+{% include 'admin/_block_fields.html' %}<button class="btn" type="submit">{{ t('adm.save') }}</button></form>
+<form method="post" class="row u-mt" data-confirm="{{ t('adm.confirm_delete') }}">{{ csrf() }}<button class="btn secondary small" name="action" value="up" type="submit">↑</button><button class="btn secondary small" name="action" value="down" type="submit">↓</button><button class="btn danger small" name="action" value="delete" type="submit">{{ t('adm.delete') }}</button></form>{% endblock %}

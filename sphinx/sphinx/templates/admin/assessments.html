@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}{{ t('adm.assessments') }}{% endblock %}
+{% block content %}<h1>{{ t('adm.assessments') }}</h1>{% include 'admin/_nav.html' %}
+<div class="table-wrap"><table><thead><tr><th>{{ t('adm.what') }}</th><th>{{ t('adm.q.kind') }}</th><th>{{ t('adm.n_questions') }}</th></tr></thead><tbody>
+{% for r in rows %}<tr><td><a href="{{ url_for('admin.assessment_edit', aid=r.id) }}">{{ r.title }}</a><br><span class="muted small">{{ r.course_title or r.subject_name }}</span></td><td>{{ t('kind.' ~ r.kind) }}</td><td>{{ r.n }}</td></tr>{% endfor %}</tbody></table></div>{% endblock %}

@@ -1,0 +1,25 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf, block %}
+{% block title %}{{ l.title }}{% endblock %}
+{% block content %}<div class="c-{{ c.color }}">
+<p class="muted"><a href="{{ url_for('learn.course', slug=c.slug) }}">{{ c.title }}</a> / {{ l.unit_title }} · {{ t('lesson.of', n=idx+1, total=total) }}</p>
+<h1>{{ l.title }}</h1>
+<p class="row"><button type="button" class="btn secondary small" data-speak="#lesson-body" aria-pressed="false" hidden>🔊 {{ t('lesson.read_aloud') }}</button>
+  {% if done %}<span class="tag ok">✔ {{ t('lesson.done') }}</span>{% endif %}</p>
+<div id="lesson-body">{% for b in blocks %}{{ block(b) }}{% endfor %}</div>
+<section class="card" aria-labelledby="check-h"><h2 id="check-h">{{ t('lesson.check') }}</h2>
+{% if quiz_id %}<p>{{ t('lesson.check_text', pct=pass_pct) }}</p>
+  <form method="post" action="{{ url_for('learn.start_assessment', aid=quiz_id) }}">{{ csrf() }}<button class="btn" type="submit">{{ t('lesson.check_start') }}</button></form>
+{% else %}<p>{{ t('lesson.no_quiz') }}</p>
+  {% if not done %}<form method="post" action="{{ url_for('learn.complete', slug=c.slug, lesson_id=l.id) }}">{{ csrf() }}<button class="btn" type="submit">{{ t('lesson.mark_done') }}</button></form>{% endif %}{% endif %}</section>
+<nav class="row u-between u-my" aria-label="{{ t('lesson.nav') }}">
+  {% if prev %}<a class="btn secondary" href="{{ url_for('learn.lesson', slug=c.slug, lesson_id=prev.id) }}">← {{ prev.title }}</a>{% else %}<span></span>{% endif %}
+  {% if nxt %}<a class="btn secondary" href="{{ url_for('learn.lesson', slug=c.slug, lesson_id=nxt.id) }}">{{ nxt.title }} →</a>{% endif %}</nav>
+<section class="card" aria-labelledby="tutor-h"><h2 id="tutor-h">🤖 {{ t('tutor.title') }}</h2>
+{% if tutor_available %}<p class="muted">{{ t('tutor.intro') }}</p>
+  <div id="tutor-log" class="tutor-log" role="log" aria-live="polite"></div>
+  <form id="tutor-form" data-lesson-id="{{ l.id }}" data-endpoint="{{ url_for('api.tutor_chat') }}" data-net-error="{{ t('tutor.err_generic') }}">
+    <label for="tutor-msg">{{ t('tutor.label') }}</label><textarea id="tutor-msg" maxlength="600" rows="2"></textarea>
+    <p><button class="btn" type="submit">{{ t('tutor.send') }}</button></p></form>
+  <p class="muted small">{{ t('tutor.disclaimer') }}</p>
+{% else %}<p>{{ t('tutor.unavailable') }}</p>{% endif %}</section>
+</div>{% endblock %}

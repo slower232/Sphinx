@@ -1,0 +1,19 @@
+{% extends 'base.html' %}{% from '_macros.html' import course_card, pager %}
+{% block title %}{{ t('nav.courses') }}{% endblock %}
+{% block content %}
+<h1>{{ t('nav.courses') }}</h1>
+<form method="get" class="filters" role="search" aria-label="{{ t('courses.filter') }}">
+  <div><label for="q">{{ t('courses.search') }}</label><input id="q" name="q" type="search" value="{{ q }}" maxlength="80"></div>
+  <div><label for="materia">{{ t('courses.subject') }}</label><select id="materia" name="materia"><option value="">{{ t('courses.all') }}</option>
+    {% for s in subjects %}<option value="{{ s.slug }}"{% if f.materia == s.slug %} selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+  <div><label for="nivel">{{ t('courses.level') }}</label><select id="nivel" name="nivel"><option value="">{{ t('courses.all') }}</option>
+    {% for l in levels %}<option value="{{ l }}"{% if f.nivel == l %} selected{% endif %}>{{ t('level.' ~ l) }}</option>{% endfor %}</select></div>
+  <div><label for="dificultad">{{ t('courses.difficulty') }}</label><select id="dificultad" name="dificultad"><option value="">{{ t('courses.all') }}</option>
+    {% for d in (1,2,3) %}<option value="{{ d }}"{% if f.dificultad == d|string %} selected{% endif %}>{{ t('difficulty.' ~ d) }}</option>{% endfor %}</select></div>
+  <div><label for="competencia">{{ t('courses.competency') }}</label><select id="competencia" name="competencia"><option value="">{{ t('courses.all') }}</option>
+    {% for c in competencies %}<option value="{{ c.slug }}"{% if f.competencia == c.slug %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+  <div><button class="btn" type="submit">{{ t('courses.apply') }}</button></div>
+</form>
+{% if courses %}<div class="grid">{% for c in courses %}{{ course_card(c, progress.get(c.id)) }}{% endfor %}</div>{{ pager(page, pages, 'learn.courses') }}
+{% else %}<div class="card"><h2>{{ t('courses.empty_t') }}</h2><p>{{ t('courses.empty') }}</p><p><a class="btn secondary" href="{{ url_for('learn.courses') }}">{{ t('courses.clear') }}</a></p></div>{% endif %}
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %}{% from '_macros.html' import bar, csrf %}
+{% block title %}{{ c.title }}{% endblock %}
+{% block content %}<div class="c-{{ c.color }}">
+{% if c.status != 'published' %}<p class="flash error">{{ t('course.preview_notice') }} ({{ c.status }})</p>{% endif %}
+<p class="muted"><a href="{{ url_for('learn.courses') }}">{{ t('nav.courses') }}</a> / <span aria-hidden="true">{{ c.icon }}</span> {{ c.subject_name }}</p>
+<h1>{{ c.title }}</h1><p>{{ c.description }}</p>
+<p class="row"><span class="tag">{{ t('level.' ~ c.level) }}</span><span class="tag">{{ t('difficulty.' ~ c.difficulty) }}</span><span class="tag">{{ t('course.minutes', n=c.est_minutes) }}</span>
+{% if c.is_demo %}<span class="tag">{{ t('course.demo') }}</span>{% endif %}</p>
+<div class="card"><h2>{{ t('course.objectives') }}</h2><ul>{% for o in objectives %}<li>{{ o }}</li>{% endfor %}</ul>
+  {% if comps %}<p><strong>{{ t('course.competencies') }}:</strong> {{ comps|map(attribute='name')|join(', ') }}</p>{% endif %}
+  {% if c.prerequisites %}<p><strong>{{ t('course.prereq') }}:</strong> {{ c.prerequisites }}</p>{% endif %}</div>
+<div class="card u-mt"><h2>{{ t('course.completion') }}</h2>
+  <p>{{ t('course.completion_text', pct=c.pass_pct) }} {% if c.max_attempts %}{{ t('course.max_attempts', n=c.max_attempts) }}{% else %}{{ t('course.unlimited') }}{% endif %}</p>
+  {{ bar(pr.percent, t('course.progress')) }}<p class="small muted">{{ t('course.progress_pct', pct=pr.percent) }} · {{ t('course.lessons_done', done=pr.done, total=pr.total) }}</p>
+  <div class="row">
+    <form method="post" action="{{ url_for('learn.start_course', slug=c.slug) }}">{{ csrf() }}<button class="btn" type="submit">{{ t('course.continue') if pr.started else t('course.start') }}</button></form>
+    {% if cert %}<a class="btn secondary" href="{{ url_for('student.certificate', code=cert.code) }}">{{ t('cert.view') }}</a>
+    {% elif can_cert %}<form method="post" action="{{ url_for('student.issue_certificate', slug=c.slug) }}">{{ csrf() }}<button class="btn secondary" type="submit">{{ t('cert.get') }}</button></form>{% endif %}
+  </div>
+  {% if pr.completed and not user %}<p>{{ t('cert.need_account') }} <a href="{{ url_for('auth.register') }}">{{ t('nav.register') }}</a></p>{% endif %}</div>
+<h2>{{ t('course.content') }}</h2>
+{% for u in units %}<section class="card u-mb"><h3>{{ loop.index }}. {{ u.unit.title }}</h3>
+  <ol>{% for l in u.lessons %}<li><a href="{{ url_for('learn.lesson', slug=c.slug, lesson_id=l.id) }}">{{ l.title }}</a>
+    <span class="muted small">· {{ t('course.minutes', n=l.est_minutes) }}</span>
+    {% if l.id in done %}<span class="tag ok">✔ {{ t('lesson.done') }}</span>{% endif %}</li>{% endfor %}</ol></section>{% endfor %}
+{% if final %}<section class="card"><h3>{{ t('course.final') }}</h3>
+  {% if final.n %}<p>{{ t('course.final_text', pct=c.pass_pct) }}</p>
+  <form method="post" action="{{ url_for('learn.start_assessment', aid=final.id) }}">{{ csrf() }}<button class="btn" type="submit">{{ t('course.final_start') }}</button></form>
+  {% else %}<p class="muted">{{ t('course.final_none') }}</p>{% endif %}</section>{% endif %}
+{% if c.resources %}<section><h3>{{ t('course.resources') }}</h3><p>{{ c.resources }}</p></section>{% endif %}
+</div>{% endblock %}

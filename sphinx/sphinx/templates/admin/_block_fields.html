@@ -1,0 +1,6 @@
+{% from '_macros.html' import field, area %}
+<div data-types="text example">{{ field('title', t('adm.b.title'), value=f.title) }}</div>
+<div data-types="text tip">{{ area('body', t('adm.b.body'), f.body, 5, help=t('adm.b.format_help')) }}</div>
+<div data-types="example">{{ area('problem', t('adm.b.problem'), f.problem, 2) }}{{ area('steps', t('adm.b.steps'), f.steps, 4, help=t('adm.b.lines_help')) }}{{ field('answer', t('adm.b.answer'), value=f.answer) }}</div>
+<div data-types="mistakes summary">{{ area('items', t('adm.b.items'), f['items'], 4, help=t('adm.b.lines_help')) }}</div>
+<div data-types="flashcards">{{ area('cards', t('adm.b.cards'), f.cards, 4, help=t('adm.b.cards_help')) }}</div>

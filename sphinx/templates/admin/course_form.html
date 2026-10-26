@@ -1,0 +1,33 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf, field, area, select %}{% block title %}{{ t('adm.course') }}{% endblock %}
+{% block content %}<h1>{{ v.get('title') or t('adm.new_course') }}</h1>{% include 'admin/_nav.html' %}
+<form method="post" novalidate>{{ csrf() }}
+{{ field('title', t('adm.f.title'), value=v.get('title',''), required=True, error=errors.get('title',''), maxlength=120) }}
+{{ field('slug', t('adm.f.slug'), value=v.get('slug',''), help=t('adm.f.slug_help'), error=errors.get('slug','')) }}
+{{ select('subject_id', t('courses.subject'), subject_opts, v.get('subject_id',''), errors.get('subject_id','')) }}
+{{ area('description', t('adm.f.description'), v.get('description',''), 3, error=errors.get('description','')) }}
+{{ area('objectives', t('adm.f.objectives'), v.get('objectives',''), 4, help=t('adm.f.objectives_help'), error=errors.get('objectives','')) }}
+{{ select('level', t('courses.level'), level_opts, v.get('level','basico')) }}
+{{ select('difficulty', t('courses.difficulty'), [(1,t('difficulty.1')),(2,t('difficulty.2')),(3,t('difficulty.3'))], v.get('difficulty',1)) }}
+{{ field('est_minutes', t('adm.f.minutes'), 'number', v.get('est_minutes',30), error=errors.get('est_minutes','')) }}
+{{ field('pass_pct', t('adm.f.pass_pct'), 'number', v.get('pass_pct',70), error=errors.get('pass_pct','')) }}
+{{ field('max_attempts', t('adm.f.max_attempts'), 'number', v.get('max_attempts',0), help=t('adm.f.max_attempts_help'), error=errors.get('max_attempts','')) }}
+{{ area('prerequisites', t('adm.f.prereq'), v.get('prerequisites',''), 2) }}{{ area('resources', t('adm.f.resources'), v.get('resources',''), 2) }}
+<fieldset class="field"><legend>{{ t('course.competencies') }}</legend><p class="help">{{ t('adm.f.comp_help') }}</p>
+{% for c in comps %}<label class="check"><input type="checkbox" name="competencies" value="{{ c.id }}"{% if c.id in sel %} checked{% endif %}><span>{{ c.name }} <span class="muted small">({{ c.subject }})</span></span></label>{% endfor %}</fieldset>
+<button class="btn" type="submit">{{ t('adm.save') }}</button></form>
+{% if course %}
+<h2>{{ t('adm.structure') }}</h2>
+{% for u in units %}<section class="card u-mb"><form method="post" action="{{ url_for('admin.unit_update', unit_id=u.unit.id) }}" class="row">{{ csrf() }}
+<input class="u-w24" type="text" name="title" value="{{ u.unit.title }}" aria-label="{{ t('adm.unit') }}"><button class="btn small" type="submit">{{ t('adm.save') }}</button>
+<button class="btn secondary small" name="action" value="up" type="submit" aria-label="{{ t('adm.up') }}">↑</button><button class="btn secondary small" name="action" value="down" type="submit" aria-label="{{ t('adm.down') }}">↓</button></form>
+<form method="post" action="{{ url_for('admin.unit_update', unit_id=u.unit.id) }}" data-confirm="{{ t('adm.confirm_delete') }}">{{ csrf() }}<button class="btn danger small" name="action" value="delete" type="submit">{{ t('adm.delete_unit') }}</button></form>
+<ol>{% for l in u.lessons %}<li><a href="{{ url_for('admin.lesson_edit', lesson_id=l.id) }}">{{ l.title }}</a></li>{% endfor %}</ol>
+<form method="post" action="{{ url_for('admin.lesson_add', unit_id=u.unit.id) }}" class="row">{{ csrf() }}<label class="sr-only" for="nl{{ u.unit.id }}">{{ t('adm.lesson') }}</label><input class="u-w24" id="nl{{ u.unit.id }}" type="text" name="title" placeholder="{{ t('adm.new_lesson') }}" required><button class="btn secondary small" type="submit">{{ t('adm.add') }}</button></form></section>{% endfor %}
+<form method="post" action="{{ url_for('admin.unit_add', course_id=course.id) }}" class="row">{{ csrf() }}<label class="sr-only" for="nu">{{ t('adm.unit') }}</label><input class="u-w24" id="nu" type="text" name="title" placeholder="{{ t('adm.new_unit') }}" required><button class="btn secondary" type="submit">{{ t('adm.add') }}</button></form>
+{% if final %}<p><a class="btn secondary" href="{{ url_for('admin.assessment_edit', aid=final.id) }}">{{ t('adm.edit_final') }}</a></p>{% endif %}
+<h2>{{ t('adm.publication') }}</h2><p>{{ t('adm.status') }}: <span class="tag">{{ t('status.' ~ course.status) }}</span> · {{ t('adm.version') }} {{ course.version }}</p>
+<div class="row"><a class="btn secondary" href="{{ url_for('learn.course', slug=course.slug) }}">{{ t('adm.preview') }}</a>
+{% if course.status != 'published' %}<form method="post" action="{{ url_for('admin.course_status', course_id=course.id) }}">{{ csrf() }}<input type="hidden" name="action" value="publish"><button class="btn" type="submit">{{ t('adm.publish') }}</button></form>
+<form method="post" action="{{ url_for('admin.course_delete', course_id=course.id) }}" data-confirm="{{ t('adm.confirm_delete') }}">{{ csrf() }}<button class="btn danger" type="submit">{{ t('adm.delete_course') }}</button></form>
+{% else %}<form method="post" action="{{ url_for('admin.course_status', course_id=course.id) }}">{{ csrf() }}<input type="hidden" name="action" value="unpublish"><button class="btn secondary" type="submit">{{ t('adm.unpublish') }}</button></form>{% endif %}</div>{% endif %}
+{% endblock %}

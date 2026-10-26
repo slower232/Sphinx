@@ -1,0 +1,12 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf %}
+{% block title %}{{ t('nav.goals') }}{% endblock %}
+{% block content %}
+<h1>{{ t('goals.title') }}</h1><p>{{ t('goals.lead') }}</p>
+<form method="post" action="{{ url_for('learn.goals') }}">{{ csrf() }}
+{% for s in subjects %}<section class="card course-card u-mb c-{{ s.color }}"><h2><span aria-hidden="true">{{ s.icon }}</span> {{ s.name }}</h2>
+  <label class="check"><input type="checkbox" name="subject" value="{{ s.id }}"{% if s.id in sel_s %} checked{% endif %}><span>{{ t('goals.whole_subject') }}</span></label>
+  {% for c in comps if c.subject_id == s.id %}<label class="check"><input type="checkbox" name="competency" value="{{ c.id }}"{% if c.id in sel_c %} checked{% endif %}><span>{{ c.name }}<br><span class="muted small">{{ c.description }}</span></span></label>{% endfor %}
+  {% if diag.get(s.id) %}<p><a class="btn secondary small" href="{{ url_for('learn.diagnostic', subject_slug=s.slug) }}">{{ t('goals.diagnostic') }}</a></p>{% endif %}</section>{% endfor %}
+<p class="row"><button class="btn" type="submit">{{ t('goals.save') }}</button><a class="btn secondary" href="{{ url_for('learn.courses') }}">{{ t('goals.skip') }}</a></p></form>
+{% if recs %}<h2>{{ t('reco.title') }}</h2>{% for r in recs %}<div class="card u-mb-s"><a href="{{ r.url }}"><strong>{{ r.title }}</strong></a><p class="muted small">{{ t('reco.why') }}: {{ r.reason }}</p></div>{% endfor %}{% endif %}
+{% endblock %}

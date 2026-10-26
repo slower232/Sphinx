@@ -1,0 +1,9 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf, select %}
+{% block title %}{{ t('nav.prefs') }}{% endblock %}
+{% block content %}<h1>{{ t('prefs.title') }}</h1><p class="muted">{{ t('prefs.note') }}</p>
+<form method="post" action="{{ url_for('student.prefs') }}">{{ csrf() }}<input type="hidden" name="next" value="{{ url_for('student.prefs') }}">
+{{ select('theme', t('prefs.theme'), [('auto', t('prefs.auto')), ('light', t('prefs.light')), ('dark', t('prefs.dark'))], prefs.theme) }}
+{{ select('size', t('prefs.size'), [('normal', t('prefs.normal')), ('large', t('prefs.large'))], prefs.size) }}
+{{ select('motion', t('prefs.motion'), [('auto', t('prefs.motion_auto')), ('reduce', t('prefs.motion_reduce'))], prefs.motion) }}
+{{ select('streak', t('prefs.streak'), [('on', t('prefs.show')), ('off', t('prefs.hide'))], prefs.streak) }}
+<button class="btn" type="submit">{{ t('prefs.save') }}</button></form>{% endblock %}

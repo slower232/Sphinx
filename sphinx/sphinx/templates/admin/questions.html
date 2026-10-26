@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% from '_macros.html' import pager %}{% block title %}{{ t('adm.questions') }}{% endblock %}
+{% block content %}<h1>{{ t('adm.questions') }}</h1>{% include 'admin/_nav.html' %}
+<form method="get" class="row"><label for="materia">{{ t('courses.subject') }}</label><select class="u-w16" id="materia" name="materia"><option value="">{{ t('courses.all') }}</option>{% for s in subjects %}<option value="{{ s.slug }}"{% if subject == s.slug %} selected{% endif %}>{{ s.name }}</option>{% endfor %}</select><button class="btn secondary small" type="submit">{{ t('courses.apply') }}</button><a class="btn" href="{{ url_for('admin.question_edit') }}">{{ t('adm.new_question') }}</a></form>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>{{ t('adm.q.prompt') }}</th><th>{{ t('adm.q.kind') }}</th><th>{{ t('results.comp') }}</th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.id }}</td><td><a href="{{ url_for('admin.question_edit', qid=r.id) }}">{{ r.prompt[:90] }}</a></td><td>{{ t('qkind.' ~ r.kind) }}</td><td>{{ r.comp }}</td></tr>{% endfor %}</tbody></table></div>{{ pager(page, pages, 'admin.questions') }}{% endblock %}

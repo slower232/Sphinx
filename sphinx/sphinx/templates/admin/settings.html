@@ -1,0 +1,3 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf, field %}{% block title %}{{ t('adm.settings') }}{% endblock %}
+{% block content %}<h1>{{ t('adm.settings') }}</h1>{% include 'admin/_nav.html' %}<p class="muted">{{ t('adm.settings_help') }}</p>
+<form method="post">{{ csrf() }}{% for k, val in values.items() %}{{ field(k, t('adm.set.' ~ k), 'number', val) }}{% endfor %}<button class="btn" type="submit">{{ t('adm.save') }}</button></form>{% endblock %}

@@ -1,0 +1,2 @@
+{% extends 'base.html' %}{% block title %}{{ code }}{% endblock %}
+{% block content %}<h1>{{ code }}</h1><p>{{ t(message_key) }}</p><p><a class="btn" href="{{ url_for('public.home') }}">{{ t('err.home') }}</a></p>{% endblock %}

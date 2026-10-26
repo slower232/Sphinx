@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf %}{% block title %}{{ a.title }}{% endblock %}
+{% block content %}<h1>{{ a.title }}</h1>{% include 'admin/_nav.html' %}<p class="muted">{{ t('adm.assessment_help') }}</p>
+<form method="post">{{ csrf() }}{% for q in cands %}<label class="check"><input type="checkbox" name="q" value="{{ q.id }}"{% if q.id in sel %} checked{% endif %}><span>{{ q.prompt[:110] }}<br><span class="muted small">{{ q.comp }} · {{ t('qkind.' ~ q.kind) }} · {{ t('difficulty.' ~ q.difficulty) }}</span></span></label>{% else %}<p>{{ t('adm.no_candidates') }}</p>{% endfor %}
+<button class="btn" type="submit">{{ t('adm.save') }}</button></form>{% endblock %}

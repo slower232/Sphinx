@@ -1,0 +1,9 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf %}
+{% block title %}{{ t('account.title') }}{% endblock %}
+{% block content %}<h1>{{ t('account.title') }}</h1>
+<div class="card"><p><strong>{{ t('auth.alias') }}:</strong> {{ user.alias }}</p><p><strong>{{ t('auth.email') }}:</strong> {{ user.email or '—' }}</p></div>
+<h2>{{ t('account.export_t') }}</h2><p>{{ t('account.export') }}</p><a class="btn secondary" href="{{ url_for('student.export') }}">{{ t('account.export_btn') }}</a>
+<h2>{{ t('account.delete_t') }}</h2><p>{{ t('account.delete') }}</p>
+<form method="post" action="{{ url_for('student.delete_account') }}" data-confirm="{{ t('account.delete_confirm') }}">{{ csrf() }}
+<div class="field"><label for="password">{{ t('account.confirm_password') }}</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+<button class="btn danger" type="submit">{{ t('account.delete_btn') }}</button></form>{% endblock %}

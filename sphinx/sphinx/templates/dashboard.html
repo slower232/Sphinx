@@ -1,0 +1,27 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf, bar %}
+{% block title %}{{ t('nav.dashboard') }}{% endblock %}
+{% block content %}
+<h1>{{ t('dash.title') }}</h1>
+{% if not user %}<div class="card"><p>{{ t('dash.guest') }}</p><a class="btn" href="{{ url_for('auth.register') }}">{{ t('dash.save_progress') }}</a></div>{% endif %}
+<div class="grid u-mt">
+  <div class="card"><p class="stat">{{ xp.xp }} XP</p><p>{{ t('dash.level', n=xp.level) }}</p>{{ bar(xp.into * 100 // xp.span, t('dash.next_level')) }}<p class="small muted">{{ t('dash.to_next', n=xp.next_at - xp.xp) }}</p><p class="small muted">{{ t('dash.xp_note') }}</p></div>
+  {% if streak is not none %}<div class="card"><p class="stat">{{ streak }}</p><p>{{ t('dash.streak') }}</p><p class="small muted">{{ t('dash.streak_note') }}</p></div>{% endif %}
+  <div class="card"><h2>{{ t('dash.review') }}</h2><p class="small muted">{{ t('dash.review_text') }}</p><form method="post" action="{{ url_for('learn.review') }}">{{ csrf() }}<button class="btn small" type="submit">{{ t('dash.review_start') }}</button></form></div>
+</div>
+<h2>{{ t('reco.title') }} <span class="tag">{{ t('dash.kind_rules') }}</span></h2>
+{% for r in recs %}<div class="card u-mb-s"><a href="{{ r.url }}"><strong>{{ r.title }}</strong></a><p class="muted small">{{ t('reco.why') }}: {{ r.reason }}</p></div>{% endfor %}
+{% if not has_activity %}<div class="card"><p>{{ t('dash.empty') }}</p><a class="btn" href="{{ url_for('learn.courses') }}">{{ t('home.cta_browse') }}</a></div>{% endif %}
+{% if courses %}<h2>{{ t('dash.courses') }} <span class="tag">{{ t('dash.kind_observed') }}</span></h2><div class="grid">
+  {% for x in courses %}<div class="card course-card c-{{ x.c.color }}"><h3><a href="{{ url_for('learn.course', slug=x.c.slug) }}">{{ x.c.title }}</a></h3>{{ bar(x.p.percent, x.c.title) }}
+    <p class="small muted">{{ t('course.progress_pct', pct=x.p.percent) }}{% if x.p.completed %} · ✔ {{ t('dash.completed') }}{% endif %}</p></div>{% endfor %}</div>{% endif %}
+{% if mastery %}<h2>{{ t('dash.mastery') }} <span class="tag">{{ t('dash.kind_derived') }}</span></h2><div class="table-wrap"><table><thead><tr><th>{{ t('results.comp') }}</th><th>{{ t('results.points') }}</th><th>{{ t('results.level') }}</th></tr></thead><tbody>
+  {% for m in mastery %}<tr><td>{{ m.name }}</td><td>{{ m.got }} / {{ m.tot|int }}</td><td>{{ t('mastery.' ~ m.level) }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if compare %}<h2>{{ t('dash.compare') }} <span class="tag">{{ t('dash.kind_estimate') }}</span></h2><p class="muted small">{{ t('dash.compare_note') }}</p>
+  <div class="table-wrap"><table><thead><tr><th>{{ t('dash.subject') }}</th><th>{{ t('dash.diag') }}</th><th>{{ t('dash.final') }}</th></tr></thead><tbody>
+  {% for c in compare %}<tr><td>{{ c.name }}</td><td>{{ '%.0f%%'|format(c.diag) if c.diag is not none else '—' }}</td><td>{{ '%.0f%%'|format(c.final) if c.final is not none else '—' }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+{% if badges %}<h2>{{ t('dash.badges') }}</h2><div class="grid">{% for b in badges %}<div class="card"><p class="stat" aria-hidden="true">{{ b.icon }}</p><strong>{{ b.name }}</strong><p class="small muted">{{ b.description }}</p></div>{% endfor %}</div>{% endif %}
+{% if certs %}<h2>{{ t('dash.certs') }}</h2><ul>{% for c in certs %}<li><a href="{{ url_for('student.certificate', code=c.code) }}">{{ c.title }}</a> · {{ c.issued_at[:10] }}</li>{% endfor %}</ul>{% endif %}
+{% if history %}<h2>{{ t('dash.history') }} <span class="tag">{{ t('dash.kind_observed') }}</span></h2><div class="table-wrap"><table><thead><tr><th>{{ t('dash.when') }}</th><th>{{ t('dash.what') }}</th><th>{{ t('results.score') }}</th></tr></thead><tbody>
+  {% for h in history %}<tr><td>{{ h.submitted_at[:16] }}</td><td><a href="{{ url_for('learn.attempt', attempt_id=h.id) }}">{{ h.title or t('review.title') }}</a> <span class="tag">{{ t('kind.' ~ h.kind) }}</span></td><td>{{ '%.0f%%'|format(h.score_pct) }}</td></tr>{% endfor %}</tbody></table></div>{% endif %}
+<p class="muted small">{{ t('dash.no_time') }}</p>
+{% endblock %}

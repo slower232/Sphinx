@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}{{ t('adm.audit') }}{% endblock %}
+{% block content %}<h1>{{ t('adm.audit') }}</h1>{% include 'admin/_nav.html' %}
+<div class="table-wrap"><table><thead><tr><th>{{ t('dash.when') }}</th><th>{{ t('adm.admin') }}</th><th>{{ t('adm.action') }}</th><th>{{ t('adm.detail') }}</th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.created_at[:16] }}</td><td>{{ r.alias or '—' }}</td><td>{{ r.action }} {{ r.entity }} {{ r.entity_id or '' }}</td><td>{{ r.detail }}</td></tr>{% endfor %}</tbody></table></div>{% endblock %}

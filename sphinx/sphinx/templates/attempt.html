@@ -1,0 +1,16 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf %}
+{% block title %}{{ ctx.title }}{% endblock %}
+{% block content %}<div class="c-{{ ctx.color }}">
+<h1>{{ ctx.title }}</h1><p class="muted">{{ t('attempt.help') }}</p>
+<form method="post" action="{{ url_for('learn.submit', attempt_id=att.id) }}" data-once>{{ csrf() }}
+{% for q in questions %}<section class="card question" aria-labelledby="qp-{{ q.id }}">
+  <p class="muted small">{{ t('attempt.question', n=loop.index, total=questions|length) }}</p>
+  <div class="q-prompt" id="qp-{{ q.id }}">{{ q.prompt|rich }}</div>
+  {% if q.kind in ('mcq','tf') %}<div role="radiogroup" aria-labelledby="qp-{{ q.id }}">{% for o in q.options %}<label class="choice"><input type="radio" name="q_{{ q.id }}" value="{{ o.id }}"><span>{{ o.text }}</span></label>{% endfor %}</div>
+  {% elif q.kind == 'numeric' %}<input type="text" inputmode="text" name="q_{{ q.id }}" autocomplete="off" aria-labelledby="qp-{{ q.id }}" maxlength="30"><p class="help">{{ t('attempt.numeric_help') }}</p>
+  {% elif q.kind == 'short' %}<input type="text" name="q_{{ q.id }}" autocomplete="off" aria-labelledby="qp-{{ q.id }}" maxlength="80">
+  {% elif q.kind == 'match' %}{% set qi = q.id %}{% for l in q.left %}<div class="match-row"><span id="m-{{ qi }}-{{ loop.index0 }}">{{ l }}</span>
+    <select name="q_{{ qi }}_{{ loop.index0 }}" aria-labelledby="m-{{ qi }}-{{ loop.index0 }}"><option value="">{{ t('attempt.choose') }}</option>{% for r in q.right %}<option>{{ r }}</option>{% endfor %}</select></div>{% endfor %}{% endif %}
+</section>{% endfor %}
+<p class="row"><button class="btn" type="submit">{{ t('attempt.submit') }}</button><a class="btn secondary" href="{{ ctx.back_url }}">{{ t('attempt.leave') }}</a></p></form>
+</div>{% endblock %}

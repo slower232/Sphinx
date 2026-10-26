@@ -1,0 +1,22 @@
+{% extends 'base.html' %}{% from '_macros.html' import csrf, bar %}
+{% block title %}{{ t('results.title') }}{% endblock %}
+{% block content %}<div class="c-{{ ctx.color }}">
+<h1>{{ ctx.title }}</h1>
+<div class="card"><p class="score">{{ '%.0f'|format(att.score_pct) }}%</p>{{ bar(att.score_pct, t('results.score')) }}
+  {% if att.kind in ('formative','final') %}{% if att.passed %}<p><span class="tag ok">✔ {{ t('results.passed') }}</span> {{ t('results.needed', pct=pass_pct) }}</p>
+  {% else %}<p><span class="tag err">✖ {{ t('results.not_passed') }}</span> {{ t('results.needed', pct=pass_pct) }} {{ t('results.retry') }}</p>{% endif %}
+  {% else %}<p class="muted">{{ t('results.estimate') }}</p>{% endif %}</div>
+{% if breakdown %}<h2>{{ t('results.by_comp') }}</h2><div class="table-wrap"><table><thead><tr><th>{{ t('results.comp') }}</th><th>{{ t('results.points') }}</th><th>{{ t('results.level') }}</th></tr></thead><tbody>
+  {% for b in breakdown %}<tr><td>{{ b.name }}</td><td>{{ b.got }} / {{ b.tot|int }}</td><td>{{ t('mastery.' ~ b.level) }}</td></tr>{% endfor %}</tbody></table></div>
+  <p class="muted small">{{ t('diag.limits') }}</p>{% endif %}
+{% if recs %}<h2>{{ t('reco.title') }}</h2>{% for r in recs %}<div class="card u-mb-s"><a href="{{ r.url }}"><strong>{{ r.title }}</strong></a><p class="muted small">{{ t('reco.why') }}: {{ r.reason }}</p></div>{% endfor %}{% endif %}
+{% if can_cert %}<p><a class="btn" href="{{ url_for('learn.course', slug=ctx.course.slug) }}">{{ t('cert.get') }}</a></p>{% endif %}
+<h2>{{ t('results.review') }}</h2>
+{% for r in results %}<section class="card result {{ 'ok' if r.is_correct else 'bad' }} u-mb">
+  <p><strong>{{ loop.index }}. {{ '✔ ' ~ t('results.right') if r.is_correct else '✖ ' ~ t('results.wrong') }}</strong></p>
+  <div>{{ r.q.prompt|rich }}</div>
+  <p>{{ t('results.yours') }}: <strong>{{ r.given or '—' }}</strong></p>
+  {% if not r.is_correct %}<p>{{ t('results.correct') }}: <strong>{{ r.correct }}</strong></p>{% endif %}
+  {% if r.q.explanation %}<p class="muted">{{ t('results.why') }}: {{ r.q.explanation }}</p>{% endif %}</section>{% endfor %}
+<p class="row"><a class="btn" href="{{ ctx.back_url }}">{{ t('results.continue') }}</a><a class="btn secondary" href="{{ url_for('student.dashboard') }}">{{ t('nav.dashboard') }}</a></p>
+</div>{% endblock %}
