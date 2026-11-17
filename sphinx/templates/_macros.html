@@ -50,7 +50,8 @@
 {% if b.type == 'text' %}<section class="block">{% if d.title %}<h3>{{ d.title }}</h3>{% endif %}{{ d.body|rich }}</section>
 {% elif b.type == 'example' %}<section class="block card"><h3>{{ t('block.example') }}{% if d.title %}: {{ d.title }}{% endif %}</h3><p>{{ d.problem }}</p>
   <ol class="steps">{% for s in d.steps %}<li>{{ s }}</li>{% endfor %}</ol><p class="answer">{{ t('block.answer') }}: {{ d.answer }}</p></section>
-{% elif b.type == 'tip' %}<aside class="block tip"><strong>{{ t('block.tip') }}.</strong> {{ d.body|rich }}</aside>
+{% elif b.type == 'scene' %}<figure class="scene-block"><div class="scene" aria-hidden="true">{{ d.emoji }}</div>{% if d.caption %}<figcaption>{{ d.caption }}</figcaption>{% endif %}</figure>
+{% elif b.type == 'tip' %}<aside class="block tip tip-mascot"><img class="mascot-sm" src="{{ url_for('static', filename='mascot/happy.svg') }}" alt="" width="56" height="56"><div><strong>{{ t('block.tip') }}.</strong> {{ d.body|rich }}</div></aside>
 {% elif b.type == 'mistakes' %}<section class="block mistakes"><h3>{{ t('block.mistakes') }}</h3><ul>{% for i in d["items"] %}<li>{{ i }}</li>{% endfor %}</ul></section>
 {% elif b.type == 'summary' %}<section class="block summary"><h3>{{ t('block.summary') }}</h3><ul>{% for i in d["items"] %}<li>{{ i }}</li>{% endfor %}</ul></section>
 {% elif b.type == 'flashcards' %}<section class="block"><h3>{{ t('block.flashcards') }}</h3><p class="muted small">{{ t('block.flashcards_help') }}</p>

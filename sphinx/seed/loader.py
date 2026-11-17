@@ -1,7 +1,7 @@
 """Carga reproducible de materias, cursos de DEMOSTRACIÓN, insignias y ajustes. Es idempotente."""
 import json
 
-from ..db import ex, q1, tx
+from ..db import ex, q1, qa, tx
 from . import math, science, spanish
 
 ACHIEVEMENTS = [
@@ -11,6 +11,7 @@ ACHIEVEMENTS = [
     ("precision", "Precisión", "Lograste 90% o más en una evaluación.", "🎯"),
     ("graduado", "Curso completado", "Completaste un curso entero.", "🎓"),
 ]
+MODULES = (math, science, spanish)
 
 
 def _insert_question(q, comp_ids, lesson_id=None):
@@ -18,9 +19,10 @@ def _insert_question(q, comp_ids, lesson_id=None):
              (q["kind"], q["prompt"], q["explanation"], q["diff"], json.dumps(q.get("data", {}), ensure_ascii=False),
               comp_ids[q["comp"]], lesson_id))
     qid = cur.lastrowid
+    emojis = q.get("emojis") or []
     for pos, text in enumerate(q.get("options", [])):
-        ex("INSERT INTO answer_options(question_id, position, text, is_correct) VALUES (?,?,?,?)",
-           (qid, pos, text, 1 if pos == q["correct"] else 0))
+        ex("INSERT INTO answer_options(question_id, position, text, is_correct, emoji) VALUES (?,?,?,?,?)",
+           (qid, pos, text, 1 if pos == q["correct"] else 0, emojis[pos] if pos < len(emojis) else ""))
     return qid
 
 
@@ -30,26 +32,34 @@ def _link(assessment_id, question_ids):
 
 
 def seed_all(force=False):
-    """Carga el contenido inicial. Si ya existe contenido y force=False, no hace nada."""
+    """Carga el contenido inicial. Sin force no hace nada si ya hay materias; con force agrega lo que falte."""
     if q1("SELECT 1 FROM subjects LIMIT 1") and not force:
         return False
     with tx():
         for code, name, desc, icon in ACHIEVEMENTS:
             ex("INSERT OR IGNORE INTO achievements(code, name, description, icon) VALUES (?,?,?,?)", (code, name, desc, icon))
-        for mod in (math, science, spanish):
+        for mod in MODULES:
             s = mod.SUBJECT
-            if q1("SELECT 1 FROM subjects WHERE slug=?", (s["slug"],)):
-                continue
-            sid = ex("INSERT INTO subjects(slug, name, description, icon, position, color) VALUES (?,?,?,?,?,?)",
-                     (s["slug"], s["name"], s["description"], s["icon"], s["position"], s["color"])).lastrowid
-            comp_ids = {slug: ex("INSERT INTO competencies(subject_id, slug, name, description) VALUES (?,?,?,?)",
-                                 (sid, slug, name, desc)).lastrowid for slug, name, desc in s["competencies"]}
-            # Diagnóstico de la materia
-            diag = ex("INSERT INTO assessments(kind, title, subject_id) VALUES ('diagnostic', ?, ?)",
-                      (f"Diagnóstico de {s['name']}", sid)).lastrowid
-            _link(diag, [_insert_question(q, comp_ids) for q in mod.DIAGNOSTIC])
-            # Curso
+            row = q1("SELECT id FROM subjects WHERE slug=?", (s["slug"],))
+            if row:
+                sid = row["id"]
+                ex("UPDATE subjects SET name=?, description=?, icon=?, position=?, color=? WHERE id=?",
+                   (s["name"], s["description"], s["icon"], s["position"], s["color"], sid))
+            else:
+                sid = ex("INSERT INTO subjects(slug, name, description, icon, position, color) VALUES (?,?,?,?,?,?)",
+                         (s["slug"], s["name"], s["description"], s["icon"], s["position"], s["color"])).lastrowid
+            comp_ids = {}
+            for slug, name, desc in s["competencies"]:
+                r = q1("SELECT id FROM competencies WHERE slug=?", (slug,))
+                comp_ids[slug] = r["id"] if r else ex("INSERT INTO competencies(subject_id, slug, name, description) VALUES (?,?,?,?)",
+                                                      (sid, slug, name, desc)).lastrowid
+            if not q1("SELECT 1 FROM assessments WHERE kind='diagnostic' AND subject_id=?", (sid,)):
+                diag = ex("INSERT INTO assessments(kind, title, subject_id) VALUES ('diagnostic', ?, ?)",
+                          (f"Diagnóstico de {s['name']}", sid)).lastrowid
+                _link(diag, [_insert_question(q, comp_ids) for q in mod.DIAGNOSTIC])
             c = mod.COURSE
+            if q1("SELECT 1 FROM courses WHERE slug=?", (c["slug"],)):
+                continue
             minutes = sum(l["est"] for u in c["units"] for l in u["lessons"])
             cid = ex("""INSERT INTO courses(slug, subject_id, title, description, objectives, level, difficulty, est_minutes,
                         prerequisites, resources, status, pass_pct, max_attempts, is_demo) VALUES (?,?,?,?,?,?,?,?,?,?,'published',?,?,1)""",
@@ -66,9 +76,30 @@ def seed_all(force=False):
                         ex("INSERT INTO content_blocks(lesson_id, position, type, data) VALUES (?,?,?,?)",
                            (lid, bpos, b["type"], json.dumps(b["data"], ensure_ascii=False)))
                     quiz = ex("INSERT INTO assessments(kind, title, course_id, lesson_id) VALUES ('formative', ?, ?, ?)",
-                              (f"Comprueba: {les['title']}", cid, lid)).lastrowid
+                              (f"¡A jugar!: {les['title']}", cid, lid)).lastrowid
                     _link(quiz, [_insert_question(q, comp_ids, lid) for q in les["quiz"]])
             final = ex("INSERT INTO assessments(kind, title, course_id) VALUES ('final', ?, ?)",
                        (f"Evaluación final: {c['title']}", cid)).lastrowid
             _link(final, [_insert_question(q, comp_ids) for q in c["final"]])
     return True
+
+
+def replace_demo():
+    """⚠ Reemplaza el contenido de DEMOSTRACIÓN por la versión actual del código.
+    Borra los cursos demo y sus intentos/progreso, los diagnósticos y las preguntas de esas materias (incluidas las
+    que haya creado un administrador en esas competencias). No toca cuentas ni cursos creados por administradores."""
+    slugs = [m.SUBJECT["slug"] for m in MODULES]
+    with tx():
+        sids = [r["id"] for r in qa(f"SELECT id FROM subjects WHERE slug IN ({','.join('?' * len(slugs))})", slugs)]
+        if sids:
+            sp = ",".join("?" * len(sids))
+            comps = [r["id"] for r in qa(f"SELECT id FROM competencies WHERE subject_id IN ({sp})", sids)]
+            ex("DELETE FROM courses WHERE is_demo=1")
+            ex(f"DELETE FROM assessments WHERE kind='diagnostic' AND subject_id IN ({sp})", sids)
+            if comps:
+                cp = ",".join("?" * len(comps))
+                ex(f"""DELETE FROM attempts WHERE kind='review' AND id IN (SELECT r.attempt_id FROM responses r
+                       JOIN questions q ON q.id=r.question_id WHERE q.competency_id IN ({cp}))""", comps)
+                ex(f"DELETE FROM questions WHERE competency_id IN ({cp})", comps)
+            ex("DELETE FROM xp_events WHERE kind IN ('lesson','formative','final','diagnostic')")
+    return seed_all(force=True)

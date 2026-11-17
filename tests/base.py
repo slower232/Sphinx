@@ -61,6 +61,9 @@ class Base(unittest.TestCase):
                 form[f"q_{qid}"] = q["data"]["answer"] if correct else "9999"
             elif q["kind"] == "short":
                 form[f"q_{qid}"] = q["data"]["accepted"][0] if correct else "nada"
+            elif q["kind"] == "order":
+                for i, it in enumerate(q["data"]["items"]):
+                    form[f"q_{qid}_{i}"] = it if correct else "x"
             else:
                 for i, (l, r) in enumerate(q["data"]["pairs"]):
                     form[f"q_{qid}_{i}"] = r if correct else "x"

@@ -1,16 +1,34 @@
 {% extends 'base.html' %}{% from '_macros.html' import csrf %}
 {% block title %}{{ ctx.title }}{% endblock %}
-{% block content %}<div class="c-{{ ctx.color }}">
-<h1>{{ ctx.title }}</h1><p class="muted">{{ t('attempt.help') }}</p>
-<form method="post" action="{{ url_for('learn.submit', attempt_id=att.id) }}" data-once>{{ csrf() }}
-{% for q in questions %}<section class="card question" aria-labelledby="qp-{{ q.id }}">
+{% block content %}<div class="c-{{ ctx.color }} game" data-game data-check-url="{{ url_for('api.answer', attempt_id=att.id) }}"
+  data-img-happy="{{ url_for('static', filename='mascot/happy.svg') }}" data-img-cheer="{{ url_for('static', filename='mascot/cheer.svg') }}"
+  data-img-oops="{{ url_for('static', filename='mascot/oops.svg') }}"
+  data-t-check="{{ t('game.check') }}" data-t-next="{{ t('game.next') }}" data-t-finish="{{ t('game.finish') }}"
+  data-t-praise="{{ t('game.praise') }}" data-t-wrong="{{ t('game.wrong') }}" data-t-answer="{{ t('game.answer_is') }}"
+  data-t-combo="{{ t('game.combo') }}" data-t-net="{{ t('game.net_error') }}" data-t-empty="{{ t('game.slot_empty') }}"
+  data-t-bank="{{ t('game.bank') }}" data-t-order-empty="{{ t('game.order_empty') }}">
+<header class="game-top"><a class="game-close" href="{{ ctx.back_url }}" aria-label="{{ t('attempt.leave') }}">✕</a>
+  <progress class="game-progress" max="{{ questions|length }}" value="{{ answered|length }}" aria-label="{{ t('game.progress') }}">{{ answered|length }}/{{ questions|length }}</progress></header>
+<h1 class="game-title">{{ ctx.title }}</h1>
+<form id="game-form" method="post" action="{{ url_for('learn.submit', attempt_id=att.id) }}" data-once>{{ csrf() }}
+{% for q in questions %}<section class="card question" data-qid="{{ q.id }}" data-kind="{{ q.kind }}"{% if q.id in answered %} data-answered="1"{% endif %} aria-labelledby="qp-{{ q.id }}">
   <p class="muted small">{{ t('attempt.question', n=loop.index, total=questions|length) }}</p>
+  {% if q.scene %}<div class="scene" aria-hidden="true">{{ q.scene }}</div>{% endif %}
   <div class="q-prompt" id="qp-{{ q.id }}">{{ q.prompt|rich }}</div>
-  {% if q.kind in ('mcq','tf') %}<div role="radiogroup" aria-labelledby="qp-{{ q.id }}">{% for o in q.options %}<label class="choice"><input type="radio" name="q_{{ q.id }}" value="{{ o.id }}"><span>{{ o.text }}</span></label>{% endfor %}</div>
+  {% if q.kind in ('mcq','tf') %}
+    {% if q.layout == 'images' %}<div class="img-options" role="radiogroup" aria-labelledby="qp-{{ q.id }}">{% for o in q.options %}<label class="img-option"><input type="radio" name="q_{{ q.id }}" value="{{ o.id }}"><span class="img-emoji" aria-hidden="true">{{ o.emoji }}</span><span class="img-label">{{ o.text }}</span></label>{% endfor %}</div>
+    {% else %}<div role="radiogroup" aria-labelledby="qp-{{ q.id }}">{% for o in q.options %}<label class="choice"><input type="radio" name="q_{{ q.id }}" value="{{ o.id }}">{% if o.emoji %}<span class="opt-emoji" aria-hidden="true">{{ o.emoji }}</span>{% endif %}<span>{{ o.text }}</span></label>{% endfor %}</div>{% endif %}
   {% elif q.kind == 'numeric' %}<input type="text" inputmode="text" name="q_{{ q.id }}" autocomplete="off" aria-labelledby="qp-{{ q.id }}" maxlength="30"><p class="help">{{ t('attempt.numeric_help') }}</p>
   {% elif q.kind == 'short' %}<input type="text" name="q_{{ q.id }}" autocomplete="off" aria-labelledby="qp-{{ q.id }}" maxlength="80">
-  {% elif q.kind == 'match' %}{% set qi = q.id %}{% for l in q.left %}<div class="match-row"><span id="m-{{ qi }}-{{ loop.index0 }}">{{ l }}</span>
-    <select name="q_{{ qi }}_{{ loop.index0 }}" aria-labelledby="m-{{ qi }}-{{ loop.index0 }}"><option value="">{{ t('attempt.choose') }}</option>{% for r in q.right %}<option>{{ r }}</option>{% endfor %}</select></div>{% endfor %}{% endif %}
+  {% elif q.kind == 'match' %}{% set qi = q.id %}<p class="help">{{ t('game.drag_help') }}</p>{% for l in q.left %}<div class="match-row"><span id="m-{{ qi }}-{{ loop.index0 }}">{{ l }}</span>
+    <select name="q_{{ qi }}_{{ loop.index0 }}" aria-labelledby="m-{{ qi }}-{{ loop.index0 }}"><option value="">{{ t('attempt.choose') }}</option>{% for r in q.right %}<option>{{ r }}</option>{% endfor %}</select></div>{% endfor %}
+  {% elif q.kind == 'order' %}{% set qi = q.id %}<p class="help">{{ t('game.order_help') }}</p>{% for pos in range(q["choices"]|length) %}<div class="match-row"><label for="o-{{ qi }}-{{ pos }}">{{ t('attempt.position', n=pos+1) }}</label>
+    <select id="o-{{ qi }}-{{ pos }}" name="q_{{ qi }}_{{ pos }}"><option value="">{{ t('attempt.choose') }}</option>{% for it in q["choices"] %}<option>{{ it }}</option>{% endfor %}</select></div>{% endfor %}
+  {% endif %}
 </section>{% endfor %}
-<p class="row"><button class="btn" type="submit">{{ t('attempt.submit') }}</button><a class="btn secondary" href="{{ ctx.back_url }}">{{ t('attempt.leave') }}</a></p></form>
+<p class="game-fallback row"><button class="btn" type="submit">{{ t('attempt.submit') }}</button><a class="btn secondary" href="{{ ctx.back_url }}">{{ t('attempt.leave') }}</a></p></form>
+<div class="game-bar" data-bar hidden><button type="button" class="btn game-check" disabled>{{ t('game.check') }}</button></div>
+<div class="feedback" data-feedback hidden role="status" aria-live="polite"><img class="mascot-fb" alt="" width="72" height="72">
+  <div class="fb-text"><strong class="fb-title"></strong><p class="fb-body"></p></div><button type="button" class="btn fb-next"></button></div>
 </div>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/game.js') }}" defer></script>{% endblock %}

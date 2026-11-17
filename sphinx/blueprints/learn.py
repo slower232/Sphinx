@@ -223,7 +223,8 @@ def attempt(attempt_id):
     if att["status"] == "in_progress":
         qs = assessments.load_questions(json.loads(att["question_ids"]))
         questions = [assessments.public_question(qs[i]) for i in json.loads(att["question_ids"])]
-        return render_template("attempt.html", att=att, questions=questions, ctx=ctx)
+        answered = {r["question_id"] for r in qa("SELECT question_id FROM responses WHERE attempt_id=?", (att["id"],))}
+        return render_template("attempt.html", att=att, questions=questions, ctx=ctx, answered=answered)
     results = assessments.attempt_results(att)
     pass_ = ctx.get("pass_pct") if att["kind"] == "final" else gam.setting("formative_pass_pct")
     extra = {}

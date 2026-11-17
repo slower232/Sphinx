@@ -1,10 +1,11 @@
 {% extends 'base.html' %}{% from '_macros.html' import course_card %}
 {% block content %}
-<section class="hero">
-  <h1>{{ t('home.title') }}</h1>
+<section class="hero"><div class="hero-grid">
+  <div><h1>{{ t('home.title') }}</h1>
   <p>{{ t('home.lead') }}</p>
-  <p class="row"><a class="btn" href="{{ url_for('learn.goals') }}">{{ t('home.cta_start') }}</a><a class="btn secondary" href="{{ url_for('learn.courses') }}">{{ t('home.cta_browse') }}</a></p>
-</section>
+  <p class="row"><a class="btn" href="{{ url_for('learn.goals') }}">{{ t('home.cta_start') }}</a><a class="btn secondary" href="{{ url_for('learn.courses') }}">{{ t('home.cta_browse') }}</a></p></div>
+  <img class="mascot-lg" src="{{ url_for('static', filename='mascot/cheer.svg') }}" alt="{{ t('mascot.alt') }}" width="140" height="140">
+</div></section>
 <section aria-labelledby="how"><h2 id="how">{{ t('home.how') }}</h2>
   <div class="grid">
     <div class="card"><h3>1. {{ t('home.step1_t') }}</h3><p>{{ t('home.step1') }}</p></div>

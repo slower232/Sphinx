@@ -11,7 +11,7 @@ from ..services import blocks, gamification as gam, grading, progress
 
 bp = Blueprint("admin", __name__, url_prefix="/admin")
 LEVELS = ("inicial", "basico", "intermedio", "avanzado")
-KINDS = ("mcq", "tf", "numeric", "short", "match")
+KINDS = ("mcq", "tf", "numeric", "short", "match", "order")
 COLORS = ("green", "red", "blue", "orange", "purple")
 
 
@@ -397,14 +397,20 @@ def _parse_question(form):
     k = d["kind"]
     if k == "mcq":
         raw = [(form.get(f"opt{i}") or "").strip() for i in range(4)]
+        emojis = [(form.get(f"emoji{i}") or "").strip()[:12] for i in range(4)]
         correct = _int(form.get("correct"), lo=0, hi=3)
         if sum(1 for x in raw if x) < 2 or correct is None or not raw[correct] or any(len(x) > 300 for x in raw):
             errors["options"] = "adm.val.options"
-        options = [(x, i == correct) for i, x in enumerate(raw) if x]
+        options = [(x, i == correct, emojis[i]) for i, x in enumerate(raw) if x]
     elif k == "tf":
         if form.get("tf_correct") not in ("true", "false"):
             errors["options"] = "adm.val.tf"
-        options = [("Verdadero", form.get("tf_correct") == "true"), ("Falso", form.get("tf_correct") == "false")]
+        options = [("Verdadero", form.get("tf_correct") == "true", "✅"), ("Falso", form.get("tf_correct") == "false", "❌")]
+    elif k == "order":
+        items = [x.strip() for x in (form.get("items") or "").splitlines() if x.strip()]
+        if not 2 <= len(items) <= 8 or len({grading.normalize_text(i) for i in items}) != len(items) or any(len(i) > 120 for i in items):
+            errors["items"] = "adm.val.order"
+        data = {"items": items}
     elif k == "numeric":
         tol = form.get("tolerance") or "0"
         if grading.parse_number(form.get("answer")) is None or grading.parse_number(tol) is None or grading.parse_number(tol) < 0:
@@ -426,6 +432,11 @@ def _parse_question(form):
         if not 2 <= len(pairs) <= 8 or len(rights) != len(pairs):
             errors["pairs"] = "adm.val.pairs"
         data = {"pairs": pairs}
+    scene = (form.get("scene") or "").strip()[:40]
+    if scene:
+        data["scene"] = scene
+    if k == "mcq" and form.get("layout"):
+        data["layout"] = "images"
     return d, data, options, errors
 
 
@@ -440,11 +451,11 @@ def _save_question(qid, d, data, options):
                      (d["kind"], d["prompt"], d["explanation"], d["difficulty"], d["points"], json.dumps(data, ensure_ascii=False),
                       d["competency_id"], d["lesson_id"])).lastrowid
         old = qa("SELECT id FROM answer_options WHERE question_id=? ORDER BY position, id", (qid,))
-        for pos, (text, ok) in enumerate(options):          # se actualizan en sitio para no romper intentos anteriores
+        for pos, (text, ok, emoji) in enumerate(options):   # se actualizan en sitio para no romper intentos anteriores
             if pos < len(old):
-                ex("UPDATE answer_options SET text=?, is_correct=?, position=? WHERE id=?", (text, int(ok), pos, old[pos]["id"]))
+                ex("UPDATE answer_options SET text=?, is_correct=?, position=?, emoji=? WHERE id=?", (text, int(ok), pos, emoji, old[pos]["id"]))
             else:
-                ex("INSERT INTO answer_options(question_id, position, text, is_correct) VALUES (?,?,?,?)", (qid, pos, text, int(ok)))
+                ex("INSERT INTO answer_options(question_id, position, text, is_correct, emoji) VALUES (?,?,?,?,?)", (qid, pos, text, int(ok), emoji))
         for extra in old[len(options):]:
             ex("DELETE FROM answer_options WHERE id=?", (extra["id"],))
         audit("save", "question", qid, d["prompt"][:80])
@@ -485,9 +496,11 @@ def _question_values(q, opts):
     data = json.loads(q["data"] or "{}")
     v = {"kind": q["kind"], "prompt": q["prompt"], "explanation": q["explanation"], "difficulty": q["difficulty"], "points": q["points"],
          "competency_id": q["competency_id"], "lesson_id": q["lesson_id"], "answer": data.get("answer", ""), "tolerance": data.get("tolerance", "0"),
-         "accepted": "\n".join(data.get("accepted", [])), "pairs": "\n".join(f"{a} = {b}" for a, b in data.get("pairs", []))}
+         "accepted": "\n".join(data.get("accepted", [])), "pairs": "\n".join(f"{a} = {b}" for a, b in data.get("pairs", [])),
+         "items": "\n".join(data.get("items", [])), "scene": data.get("scene", ""), "layout": "1" if data.get("layout") == "images" else ""}
     for i, o in enumerate(opts[:4]):
         v[f"opt{i}"] = o["text"]
+        v[f"emoji{i}"] = o["emoji"]
         if o["is_correct"]:
             v["correct"] = str(i)
             v["tf_correct"] = "true" if o["text"] == "Verdadero" else "false"

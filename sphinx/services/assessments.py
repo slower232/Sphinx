@@ -1,5 +1,6 @@
 """Intentos de evaluación: creación, calificación en el servidor, resultados."""
 import json
+import random
 
 from ..db import ex, q1, qa, tx
 from . import gamification as gam, grading, progress
@@ -17,14 +18,22 @@ def load_questions(ids):
         d["options"] = []
         out[r["id"]] = d
     for o in qa(f"SELECT * FROM answer_options WHERE question_id IN ({ph}) ORDER BY position, id", ids):
-        out[o["question_id"]]["options"].append({"id": o["id"], "text": o["text"], "is_correct": bool(o["is_correct"])})
+        out[o["question_id"]]["options"].append({"id": o["id"], "text": o["text"], "emoji": o["emoji"], "is_correct": bool(o["is_correct"])})
     return out
 
 
 def public_question(q):
     """Versión de la pregunta que se envía al navegador: SIN respuestas correctas."""
     p = {"id": q["id"], "kind": q["kind"], "prompt": q["prompt"], "points": q["points"],
-         "options": [{"id": o["id"], "text": o["text"]} for o in q["options"]]}
+         "scene": q["data"].get("scene", ""), "layout": q["data"].get("layout", ""),
+         "options": [{"id": o["id"], "text": o["text"], "emoji": o["emoji"]} for o in q["options"]]}
+    if q["kind"] == "order":
+        items = q["data"].get("items", [])
+        shuffled = items[:]
+        random.Random(q["id"]).shuffle(shuffled)
+        if shuffled == items and len(items) > 1:      # nunca se muestra ya en el orden correcto
+            shuffled = shuffled[1:] + shuffled[:1]
+        p["choices"] = shuffled
     if q["kind"] == "match":
         pairs = q["data"].get("pairs", [])
         p["left"] = [l for l, _ in pairs]
@@ -81,8 +90,9 @@ def get_attempt(owner, attempt_id):
 
 
 def _extract(q, form):
-    if q["kind"] == "match":
-        return [form.get(f"q_{q['id']}_{i}", "") for i in range(len(q["data"].get("pairs", [])))]
+    if q["kind"] in ("match", "order"):
+        n = len(q["data"].get("pairs" if q["kind"] == "match" else "items", []))
+        return [form.get(f"q_{q['id']}_{i}", "") for i in range(n)]
     return form.get(f"q_{q['id']}", "")
 
 
@@ -96,16 +106,17 @@ def submit_attempt(owner, attempt_id, form):
             return att, None
         ids = json.loads(att["question_ids"])
         qs = load_questions(ids)
-        got = total = 0.0
+        done = {r["question_id"] for r in qa("SELECT question_id FROM responses WHERE attempt_id=?", (attempt_id,))}
         for qid in ids:
+            if qid in done:          # ya respondida en el juego (con retroalimentación): la primera respuesta cuenta
+                continue
             q = qs[qid]
             resp = _extract(q, form)
             frac, ok = grading.grade_question(q, resp)
-            pts = q["points"] * frac
-            got += pts
-            total += q["points"]
             ex("INSERT INTO responses(attempt_id, question_id, response, is_correct, points) VALUES (?,?,?,?,?)",
-               (attempt_id, qid, json.dumps(resp), 1 if ok else 0, pts))
+               (attempt_id, qid, json.dumps(resp), 1 if ok else 0, q["points"] * frac))
+        got = q1("SELECT COALESCE(SUM(points),0) AS s FROM responses WHERE attempt_id=?", (attempt_id,))["s"]
+        total = sum(qs[i]["points"] for i in ids)
         score = round(100 * got / total, 1) if total else 0.0
         passed = None
         if att["kind"] == "formative":
@@ -127,6 +138,8 @@ def _given_text(q, given):
             if str(o["id"]) == str(given):
                 return o["text"]
         return ""
+    if q["kind"] == "order":
+        return " → ".join(given) if isinstance(given, list) and any(given) else ""
     if q["kind"] == "match":
         pairs = q["data"].get("pairs", [])
         given = given if isinstance(given, list) else []
@@ -141,6 +154,8 @@ def _correct_text(q):
         return str(q["data"].get("answer", ""))
     if q["kind"] == "short":
         return (q["data"].get("accepted") or [""])[0]
+    if q["kind"] == "order":
+        return " → ".join(q["data"].get("items", []))
     return "; ".join(f"{l} → {r}" for l, r in q["data"].get("pairs", []))
 
 
@@ -170,3 +185,25 @@ def competency_breakdown(results):
         a["n"] += 1
     return [{"name": names.get(cid, "?"), "got": round(a["got"], 1), "tot": a["tot"], "n": a["n"],
              "level": grading.mastery_level(a["got"], a["tot"], a["n"])} for cid, a in agg.items()]
+
+
+def answer_one(owner, attempt_id, qid, response):
+    """Califica UNA pregunta durante el juego y la guarda. Idempotente: la primera respuesta es la que cuenta
+    (así se puede mostrar la retroalimentación sin permitir cambiar la respuesta después de verla)."""
+    if isinstance(response, list):
+        response = [str(x)[:200] for x in response[:20]]
+    else:
+        response = str(response if response is not None else "")[:200]
+    with tx():
+        att = get_attempt(owner, attempt_id)
+        if not att or att["status"] != "in_progress" or qid not in json.loads(att["question_ids"]):
+            raise LookupError("attempt")
+        q = load_questions([qid])[qid]
+        row = q1("SELECT * FROM responses WHERE attempt_id=? AND question_id=?", (attempt_id, qid))
+        if row is None:
+            frac, ok = grading.grade_question(q, response)
+            ex("INSERT INTO responses(attempt_id, question_id, response, is_correct, points) VALUES (?,?,?,?,?)",
+               (attempt_id, qid, json.dumps(response), 1 if ok else 0, q["points"] * frac))
+        else:
+            ok = bool(row["is_correct"])
+    return {"correct": ok, "explanation": q["explanation"], "correct_text": _correct_text(q)}

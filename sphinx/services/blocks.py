@@ -1,7 +1,7 @@
 """Formato estructurado y validado de los bloques de contenido (no se guarda HTML)."""
 import json
 
-BLOCK_TYPES = ["text", "example", "tip", "mistakes", "summary", "flashcards"]
+BLOCK_TYPES = ["text", "example", "tip", "mistakes", "summary", "flashcards", "scene"]
 MAX_TEXT, MAX_ITEMS = 4000, 30
 
 
@@ -29,6 +29,8 @@ def from_form(btype, form):
         raise ValueError("block.bad_type")
     if btype == "text":
         return {"title": _s(form.get("title"), ""), "body": _s(form.get("body"), "block.need_body", True)}
+    if btype == "scene":
+        return {"emoji": _s(form.get("emoji"), "block.need_emoji", True)[:40], "caption": _s(form.get("caption"), "")[:200]}
     if btype == "tip":
         return {"body": _s(form.get("body"), "block.need_body", True)}
     if btype == "example":
@@ -49,7 +51,7 @@ def from_form(btype, form):
 
 def to_form(btype, data):
     f = {"title": data.get("title", ""), "body": data.get("body", ""), "problem": data.get("problem", ""),
-         "answer": data.get("answer", ""), "steps": "\n".join(data.get("steps", [])),
+         "answer": data.get("answer", ""), "emoji": data.get("emoji", ""), "caption": data.get("caption", ""), "steps": "\n".join(data.get("steps", [])),
          "items": "\n".join(data.get("items", [])),
          "cards": "\n".join(f"{c['front']} | {c['back']}" for c in data.get("cards", []))}
     return f

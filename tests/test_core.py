@@ -85,7 +85,7 @@ class AssessmentTests(Base):
         form = self.answers_for(att, True)
         self.post(f"/intentos/{att}/enviar", form)
         self.post(f"/intentos/{att}/enviar", form)
-        self.assertEqual(len(self.q("SELECT 1 FROM responses WHERE attempt_id=?", (att,))), 3)
+        self.assertEqual(len(self.q("SELECT 1 FROM responses WHERE attempt_id=?", (att,))), 4)
         att2 = self.start(aid)                              # repetir la actividad
         self.post(f"/intentos/{att2}/enviar", self.answers_for(att2, True))
         self.assertEqual(self.q("SELECT SUM(points) s FROM xp_events")[0]["s"], 30)
@@ -415,7 +415,9 @@ class UiTests(Base):
         d = json.load(open("sphinx/locales/es.json", encoding="utf-8"))
         miss = set()
         for f in glob.glob("sphinx/templates/**/*.html", recursive=True) + glob.glob("sphinx/blueprints/*.py"):
-            for m in re.finditer(r"\bt\(\s*['\"]([a-z0-9_.]+)['\"]\s*[,)]", open(f, encoding="utf-8").read()):
+            with open(f, encoding="utf-8") as fh:
+                src = fh.read()
+            for m in re.finditer(r"\bt\(\s*['\"]([a-z0-9_.]+)['\"]\s*[,)]", src):
                 if m.group(1) not in d:
                     miss.add(m.group(1))
         self.assertEqual(miss, set())
@@ -459,3 +461,180 @@ class SubjectColorTests(Base):
         db.migrate(path)
         got = dict(sqlite3.connect(path).execute("SELECT slug, color FROM subjects").fetchall())
         self.assertEqual(got, {"matematicas": "red", "espanol": "blue"})
+
+
+class GameTests(Base):
+    def _lesson_attempt(self, client=None):
+        aid = self.q("SELECT id FROM assessments WHERE kind='formative' ORDER BY id LIMIT 1")[0]["id"]
+        return self.start(aid, client)
+
+    def _api(self, att, qid, response, client=None):
+        client = client or self.c
+        return client.post(f"/api/intentos/{att}/responder", json={"question_id": qid, "response": response},
+                           headers={"X-CSRF-Token": self.tok(client)})
+
+    def _qs(self, att):
+        import json
+        from sphinx.services import assessments
+        with self.app.app_context():
+            from sphinx.db import q1
+            ids = json.loads(q1("SELECT question_ids FROM attempts WHERE id=?", (att,))["question_ids"])
+            return ids, assessments.load_questions(ids)
+
+    def test_game_page_and_assets(self):
+        att = self._lesson_attempt()
+        page = self.c.get(f"/intentos/{att}").data.decode()
+        self.assertIn("data-game", page)
+        self.assertIn("js/game.js", page)
+        self.assertIn("img-option", page)              # pregunta de elegir la imagen
+        self.assertIn("data-kind=\"match\"", page)       # arrastrar y soltar
+        self.assertIn("data-kind=\"order\"", page)       # ordenar
+        for f in ("js/game.js", "mascot/happy.svg", "mascot/cheer.svg", "mascot/oops.svg", "mascot/think.svg"):
+            self.assertEqual(self.c.get("/static/" + f).status_code, 200, f)
+        self.assertEqual(self.c.get("/static/mascot/happy.svg").mimetype, "image/svg+xml")
+
+    def test_answer_endpoint_grades_on_server_and_first_answer_counts(self):
+        att = self._lesson_attempt()
+        ids, qs = self._qs(att)
+        q = next(q for q in qs.values() if q["kind"] == "mcq")
+        good = next(o for o in q["options"] if o["is_correct"])
+        bad = next(o for o in q["options"] if not o["is_correct"])
+        r = self._api(att, q["id"], str(bad["id"])).get_json()
+        self.assertFalse(r["correct"])
+        self.assertTrue(r["correct_text"] and r["explanation"])
+        r2 = self._api(att, q["id"], str(good["id"])).get_json()       # cambiar la respuesta tras verla no sirve
+        self.assertFalse(r2["correct"])
+        self.assertEqual(len(self.q("SELECT 1 FROM responses WHERE attempt_id=?", (att,))), 1)
+        # el resto se responde en el formulario final; la respuesta ya dada no se reemplaza
+        form = self.answers_for(att, True)
+        self.post(f"/intentos/{att}/enviar", form)
+        row = self.q("SELECT is_correct FROM responses WHERE attempt_id=? AND question_id=?", (att, q["id"]))[0]
+        self.assertEqual(row["is_correct"], 0)
+        self.assertLess(self.q("SELECT score_pct FROM attempts WHERE id=?", (att,))[0]["score_pct"], 100)
+
+    def test_answer_endpoint_permissions_and_validation(self):
+        att = self._lesson_attempt()
+        ids, _ = self._qs(att)
+        other = self.app.test_client()
+        self.assertEqual(self._api(att, ids[0], "1", other).status_code, 404)           # otro dueño
+        self.assertEqual(self._api(att, 999999, "1").status_code, 404)                   # pregunta ajena al intento
+        self.assertEqual(self.c.post(f"/api/intentos/{att}/responder", json={"question_id": ids[0], "response": "1"}).status_code, 400)  # CSRF
+        self.assertEqual(self._api(att, "x", "1").status_code, 404)
+        self.post(f"/intentos/{att}/enviar", self.answers_for(att, True))
+        self.assertEqual(self._api(att, ids[0], "1").status_code, 404)                   # intento ya enviado
+
+    def test_order_question_grading_and_shuffle(self):
+        from sphinx.services import assessments, grading
+        att = self._lesson_attempt()
+        _, qs = self._qs(att)
+        orders = [q for q in qs.values() if q["kind"] == "order"]
+        self.assertTrue(orders)
+        q = orders[0]
+        items = q["data"]["items"]
+        pub = assessments.public_question(q)
+        self.assertNotEqual(pub["choices"], items)                      # nunca se muestra resuelta
+        self.assertEqual(sorted(pub["choices"]), sorted(items))
+        self.assertEqual(self._api(att, q["id"], items).get_json()["correct"], True)
+        self.assertEqual(grading.grade_question(q, list(reversed(items)))[1], len(items) <= 1)
+        half = grading.grade_question(q, [items[0]] + ["x"] * (len(items) - 1))
+        self.assertEqual(half[0], 1 / len(items))
+
+    def test_emoji_answers_are_not_all_equal(self):
+        from sphinx.services import grading
+        self.assertNotEqual(grading.normalize_text("☁️"), grading.normalize_text("🌧️"))
+        q = {"kind": "match", "data": {"pairs": [["a", "☀️💦"], ["b", "☁️"], ["c", "🌧️"]]}, "options": []}
+        self.assertEqual(grading.grade_question(q, ["☁️", "☁️", "☁️"])[0], 1 / 3)
+        self.assertTrue(grading.grade_question(q, ["☀️💦", "☁️", "🌧️"])[1])
+
+    def test_results_show_mascot_and_kind_message(self):
+        att = self._lesson_attempt()
+        r = self.post(f"/intentos/{att}/enviar", self.answers_for(att, False), follow=True)
+        self.assertIn("mascot/oops.svg", r.data.decode())
+        self.assertIn("No pasa nada".encode(), r.data)
+        att2 = self._lesson_attempt()
+        r = self.post(f"/intentos/{att2}/enviar", self.answers_for(att2, True), follow=True)
+        self.assertIn("mascot/cheer.svg", r.data.decode())
+
+    def test_content_has_all_three_game_types_in_each_course(self):
+        for slug in ("fracciones-desde-cero", "el-agua-y-sus-cambios", "leer-con-proposito"):
+            kinds = {r["kind"] for r in self.q("""SELECT DISTINCT q.kind FROM questions q JOIN lessons l ON l.id=q.lesson_id
+                JOIN units u ON u.id=l.unit_id JOIN courses c ON c.id=u.course_id WHERE c.slug=?""", (slug,))}
+            self.assertTrue({"match", "order", "mcq"} <= kinds, slug)
+            imgs = self.q("""SELECT COUNT(*) c FROM questions q JOIN lessons l ON l.id=q.lesson_id JOIN units u ON u.id=l.unit_id
+                JOIN courses c ON c.id=u.course_id WHERE c.slug=? AND q.data LIKE '%"images"%'""", (slug,))[0]["c"]
+            self.assertGreaterEqual(imgs, 2, slug)
+        scenes = self.q("SELECT COUNT(*) c FROM content_blocks WHERE type='scene'")[0]["c"]
+        self.assertEqual(scenes, 9)                                    # una escena por lección
+
+
+class GameAdminAndMigration(Base):
+    def test_admin_can_create_order_scene_and_image_questions(self):
+        adm = self.make_admin()
+        base = {"difficulty": 1, "points": 1, "competency_id": 1, "explanation": "porque sí"}
+        r = self.post("/admin/preguntas/nueva", {**base, "kind": "order", "prompt": "Ordena", "scene": "🍕", "items": "uno\ndos\ntres"}, adm)
+        self.assertEqual(r.status_code, 302)
+        row = self.q("SELECT kind, data FROM questions ORDER BY id DESC LIMIT 1")[0]
+        import json
+        self.assertEqual((row["kind"], json.loads(row["data"])), ("order", {"items": ["uno", "dos", "tres"], "scene": "🍕"}))
+        r = self.post("/admin/preguntas/nueva", {**base, "kind": "order", "prompt": "Ordena", "items": "uno\nUNO"}, adm)
+        self.assertIn("elementos distintos".encode(), r.data)
+        r = self.post("/admin/preguntas/nueva", {**base, "kind": "mcq", "prompt": "¿Cuál es la fruta?", "layout": "1", "opt0": "Manzana",
+                                                  "opt1": "Piedra", "emoji0": "🍎", "emoji1": "🪨", "correct": "0"}, adm)
+        self.assertEqual(r.status_code, 302)
+        qid = self.q("SELECT id FROM questions ORDER BY id DESC LIMIT 1")[0]["id"]
+        self.assertEqual([o["emoji"] for o in self.q("SELECT emoji FROM answer_options WHERE question_id=? ORDER BY position", (qid,))], ["🍎", "🪨"])
+        self.assertEqual(adm.get(f"/admin/preguntas/{qid}").status_code, 200)
+
+    def test_scene_block_in_admin_and_lesson(self):
+        adm = self.make_admin()
+        self.post("/admin/lecciones/1/bloques", {"type": "scene", "emoji": "🍕🍕", "caption": "Dos pizzas"}, adm)
+        page = self.c.get("/cursos/fracciones-desde-cero/lecciones/1").data.decode()
+        self.assertIn("Dos pizzas", page)
+        self.assertIn("scene-block", page)
+        r = self.post("/admin/lecciones/1/bloques", {"type": "scene", "emoji": ""}, adm, follow=True)
+        self.assertIn("emojis de la escena".encode(), r.data.lower())
+
+    def test_migration_003_preserves_data_and_integrity(self):
+        import sqlite3
+        from sphinx import db
+        path = self.tmp + "/v2.db"
+        conn = sqlite3.connect(path)
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.executescript(open("sphinx/migrations/001_initial.sql", encoding="utf-8").read())
+        conn.executescript(open("sphinx/migrations/002_subject_color.sql", encoding="utf-8").read())
+        conn.execute("CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')))")
+        conn.executemany("INSERT INTO schema_migrations(version) VALUES (?)", [("001_initial",), ("002_subject_color",)])
+        conn.executescript("""
+          INSERT INTO subjects(id, slug, name) VALUES (1,'s','S'); INSERT INTO competencies(id, subject_id, slug, name) VALUES (1,1,'c','C');
+          INSERT INTO questions(id, kind, prompt, competency_id) VALUES (7,'mcq','¿?',1);
+          INSERT INTO answer_options(question_id, text, is_correct) VALUES (7,'a',1);
+          INSERT INTO anon_sessions(id) VALUES ('x');
+          INSERT INTO attempts(id, kind, anon_id, question_ids) VALUES (1,'review','x','[7]');
+          INSERT INTO responses(attempt_id, question_id, response, is_correct, points) VALUES (1,7,'"1"',1,1);""")
+        conn.commit(); conn.close()
+        db.migrate(path)
+        c = sqlite3.connect(path)
+        self.assertEqual(c.execute("SELECT COUNT(*) FROM responses").fetchone()[0], 1)
+        self.assertEqual(c.execute("SELECT COUNT(*) FROM answer_options").fetchone()[0], 1)
+        self.assertEqual(c.execute("SELECT emoji FROM answer_options").fetchone()[0], "")
+        c.execute("PRAGMA foreign_keys=ON")
+        c.execute("INSERT INTO questions(kind, prompt, competency_id) VALUES ('order','x',1)")       # ya permitido
+        self.assertEqual(c.execute("PRAGMA foreign_key_check").fetchall(), [])
+        with self.assertRaises(sqlite3.IntegrityError):
+            c.execute("DELETE FROM questions WHERE id=7")                                              # RESTRICT sigue vigente
+        c.close()
+
+    def test_replace_demo_keeps_accounts_and_refreshes_content(self):
+        from sphinx.seed.loader import replace_demo
+        self.register("ana")
+        aid = self.q("SELECT id FROM assessments WHERE kind='formative' ORDER BY id LIMIT 1")[0]["id"]
+        att = self.start(aid)
+        self.post(f"/intentos/{att}/enviar", self.answers_for(att, True))
+        n_questions = self.q("SELECT COUNT(*) c FROM questions")[0]["c"]
+        with self.app.app_context():
+            replace_demo()
+        self.assertEqual(self.q("SELECT COUNT(*) c FROM users")[0]["c"], 1)
+        self.assertEqual(self.q("SELECT COUNT(*) c FROM questions")[0]["c"], n_questions)
+        self.assertEqual(self.q("SELECT COUNT(*) c FROM courses WHERE is_demo=1")[0]["c"], 3)
+        self.assertEqual(self.q("SELECT COUNT(*) c FROM attempts")[0]["c"], 0)
+        self.assertEqual(self.c.get("/cursos").status_code, 200)

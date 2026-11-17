@@ -35,8 +35,8 @@ Las migraciones (`sphinx/migrations/*.sql`) se aplican solas al iniciar y quedan
 ```bash
 python -m unittest discover -s tests -t .
 ```
-Resultado de la última ejecución: **41 pruebas, todas OK**. Cubren: calificación, cursos/borradores/filtros, evaluaciones (puntaje no manipulable, idempotencia, intentos), cuentas, permisos, aislamiento entre estudiantes, adopción de progreso, recuperación de contraseña, certificados + PDF + verificación, administración (crear/publicar), tutor (con proveedor simulado), cabeceras de seguridad y claves de traducción.
-**No hay** pruebas de navegador (E2E) ni medición automática de accesibilidad: ver "Pendiente".
+Resultado de la última ejecución: **55 pruebas, todas OK**. Cubren: calificación, cursos/borradores/filtros, evaluaciones (puntaje no manipulable, idempotencia, intentos), cuentas, permisos, aislamiento entre estudiantes, adopción de progreso, recuperación de contraseña, certificados + PDF + verificación, administración (crear/publicar), tutor (con proveedor simulado), cabeceras de seguridad y claves de traducción.
+Además hay una prueba de humo opcional en navegador real: `tests/e2e/game_smoke.js` (puppeteer; ver el encabezado del archivo). Se ejecutó manualmente con Chromium sin pantalla sobre la primera lección de Matemáticas (4 preguntas: elegir, imagen, arrastrar, ordenar) sin errores de JavaScript; **no se ha ejecutado en dispositivos táctiles reales** ni forma parte de `unittest`. No hay medición automática de accesibilidad.
 
 ## 3. Estructura
 
@@ -73,6 +73,16 @@ Diferencias con la lista de entidades del prompt: competencia dominada y recomen
 - **Dominio de competencia**: con el intento enviado más reciente de cada evaluación: ≥75% dominada, 50–74% en desarrollo, <50% por reforzar; con menos de 2 preguntas, "sin datos suficientes". Es una estimación, no una etiqueta.
 - **Recomendaciones (reglas, en este orden)**: (1) lección que refuerza cada competencia "por reforzar"; (2) cursos empezados; (3) para cada materia elegida en Objetivos, un curso sin empezar (más difícil si el resultado en la materia ≥80%, más fácil si no); (4) sin datos: curso introductorio. Cada una explica su motivo. No hay bloqueos de contenido.
 - **Reto de repaso**: hasta 5 preguntas cuya respuesta más reciente fue incorrecta.
+
+## 5b. Modo juego (estilo Duolingo, para 9 a 12 años)
+- **Una pregunta por pantalla** con barra de progreso, botón *Comprobar* y panel de retroalimentación inmediata (verde/rojo con ✔/✖, la respuesta correcta y la explicación). Sin vidas ni castigos: un mensaje amable aunque se falle. Racha de aciertos solo decorativa.
+- **Mascota Sphi** (gatito esfinge con diadema verde), dibujada en SVG propio (`static/mascot/`): contenta, celebrando, animando y pensando. Sin imágenes externas.
+- **Juegos**: *elegir la imagen correcta* (opciones como tarjetas grandes con emoji), *arrastrar y soltar* para relacionar (o tocar la ficha y luego el espacio, para celulares y teclado) y *ordenar* pasos, números o palabras. Además opción múltiple, verdadero/falso, numérica y corta.
+- **Escenas en emoji** en cada lección (bloque `scene`) y sobre las preguntas (decorativas: el enunciado siempre trae toda la información; las opciones de imagen llevan texto).
+- **La calificación sigue siendo del servidor**: cada comprobación llama a `POST /api/intentos/<id>/responder`; **la primera respuesta es la que cuenta** (no se puede cambiar tras ver la retroalimentación). Al terminar se envía el intento y el servidor calcula puntaje, XP e insignias. Si se recarga a mitad, el juego retoma en la primera pregunta sin responder. **Sin JavaScript** el formulario completo sigue funcionando.
+- Nuevos tipos para administración: pregunta *Ordenar*, escena y emoji por opción, casilla «mostrar opciones como imágenes».
+- **Actualizar una base de datos existente**: las migraciones se aplican solas al iniciar. Para cargar el contenido visual nuevo ejecuta `python manage.py seed --replace-demo` (⚠ borra el progreso de los 3 cursos de demostración y las preguntas de esas materias; **no** toca cuentas ni cursos creados por administradores). En una base nueva basta `python manage.py seed`.
+- Limitación: la mascota y los emojis dependen de las fuentes del dispositivo (los emojis pueden verse distintos según el sistema); no hay sonidos ni animaciones complejas.
 
 ## 6. Seguridad y privacidad (lo implementado)
 Contraseñas con hash (werkzeug); sesión firmada, HttpOnly, SameSite=Lax, `Secure` en producción; sesión nueva al ingresar; CSRF en todo POST; límite de intentos de acceso (5 por 15 min por usuario+IP, 30 por IP); mensajes de error genéricos (sin trazas); validación en servidor; consultas parametrizadas; autoescape de Jinja + texto enriquecido restringido (sin HTML arbitrario); CSP estricta (sin scripts ni estilos en línea, sin recursos remotos); `X-Frame-Options`, `nosniff`; límite de tamaño de solicitud; redirecciones solo internas; cuentas desactivadas pierden acceso de inmediato; roles solo asignables por `manage.py create-admin`; bitácora de acciones administrativas; el panel admin no muestra correos ni progreso individual.
@@ -123,7 +133,7 @@ Usa la API de mensajes de Anthropic **desde el servidor**. Configura en `.env`: 
 ## 11. Pendiente / limitaciones conocidas
 - Contenido: solo 3 cursos (9 lecciones) de demostración; sin imágenes ni diagramas; sin alineación curricular oficial verificada.
 - Accesibilidad: sin auditoría WCAG formal, sin medición de contraste en el tema oscuro, sin pruebas con NVDA/VoiceOver; el audio es solo la voz del navegador (si existe).
-- Sin pruebas E2E en navegador; JavaScript (tarjetas, tutor, menú, lector) sin pruebas automáticas.
+- JavaScript: solo hay una prueba de humo manual del juego en Chromium sin pantalla; arrastrar con el dedo (táctil real) y tarjetas/tutor/menú/lector sin pruebas automáticas.
 - Correo (SMTP) sin probar contra un servidor real; sin SMTP la recuperación de contraseña no funciona en producción (en desarrollo el enlace se imprime en la consola).
 - Admin: no hay duplicar cursos, ni reordenar arrastrando (hay botones ↑↓), ni revocar certificados desde la interfaz, ni reiniciar contraseñas de otros usuarios desde la interfaz (`manage.py reset-password`).
 - Aviso de privacidad y consentimiento: borrador; revisión legal pendiente. No hay verificación de edad ni flujo de autorización parental más allá de una casilla.

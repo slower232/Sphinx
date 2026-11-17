@@ -8,12 +8,12 @@ from flask import g, current_app
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
-def connect(path):
+def connect(path, fk=True):
     if path != ":memory:":
         Path(path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path, isolation_level=None, timeout=10)   # autocommit; usamos tx() explícito
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA foreign_keys=ON" if fk else "PRAGMA foreign_keys=OFF")
     if path != ":memory:":
         conn.execute("PRAGMA journal_mode=WAL")
     return conn
@@ -21,7 +21,7 @@ def connect(path):
 
 def migrate(path):
     """Aplica en orden las migraciones NNN_nombre.sql que aún no se han aplicado."""
-    conn = connect(path)
+    conn = connect(path, fk=False)      # necesario para reconstruir tablas; se verifica la integridad al final
     conn.execute("CREATE TABLE IF NOT EXISTS schema_migrations "
                  "(version TEXT PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT (datetime('now')))")
     done = {r[0] for r in conn.execute("SELECT version FROM schema_migrations")}
@@ -30,7 +30,10 @@ def migrate(path):
             continue
         sql = f.read_text(encoding="utf-8")
         conn.executescript(f"BEGIN;\n{sql}\nINSERT INTO schema_migrations(version) VALUES('{f.stem}');\nCOMMIT;")
+    broken = conn.execute("PRAGMA foreign_key_check").fetchall()
     conn.close()
+    if broken:
+        raise RuntimeError(f"Integridad referencial rota tras migrar: {len(broken)} filas")
 
 
 def purge_anonymous(path, days):

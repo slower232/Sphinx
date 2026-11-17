@@ -2,7 +2,8 @@
 {% block title %}{{ t('results.title') }}{% endblock %}
 {% block content %}<div class="c-{{ ctx.color }}">
 <h1>{{ ctx.title }}</h1>
-<div class="card"><p class="score">{{ '%.0f'|format(att.score_pct) }}%</p>{{ bar(att.score_pct, t('results.score')) }}
+{% set tier = 'high' if att.score_pct >= 80 else ('mid' if att.score_pct >= 50 else 'low') %}
+<div class="card"><div class="result-head"><img class="mascot-lg" src="{{ url_for('static', filename='mascot/' ~ ('cheer' if tier == 'high' else ('happy' if tier == 'mid' else 'oops')) ~ '.svg') }}" alt="" width="140" height="140"><div><p class="score">{{ '%.0f'|format(att.score_pct) }}%</p><p><strong>{{ t('results.msg_' ~ tier) }}</strong></p></div></div>{{ bar(att.score_pct, t('results.score')) }}
   {% if att.kind in ('formative','final') %}{% if att.passed %}<p><span class="tag ok">✔ {{ t('results.passed') }}</span> {{ t('results.needed', pct=pass_pct) }}</p>
   {% else %}<p><span class="tag err">✖ {{ t('results.not_passed') }}</span> {{ t('results.needed', pct=pass_pct) }} {{ t('results.retry') }}</p>{% endif %}
   {% else %}<p class="muted">{{ t('results.estimate') }}</p>{% endif %}</div>

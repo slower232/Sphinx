@@ -16,7 +16,8 @@ def main():
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("init-db", help="Aplica las migraciones (también se aplican al iniciar la app)")
     s = sub.add_parser("seed", help="Carga materias y cursos de DEMOSTRACIÓN")
-    s.add_argument("--force", action="store_true", help="Intenta cargar de nuevo aunque ya haya contenido (no duplica materias existentes)")
+    s.add_argument("--force", action="store_true", help="Agrega el contenido de demostración que falte (no duplica lo existente)")
+    s.add_argument("--replace-demo", action="store_true", help="⚠ Reemplaza el contenido de demostración por la versión actual (borra su progreso)")
     a = sub.add_parser("create-admin", help="Crea una cuenta administradora (único camino para crearla)")
     a.add_argument("--alias", required=True)
     a.add_argument("--email", default=None)
@@ -43,7 +44,12 @@ def main():
         if args.cmd == "init-db":
             print("Migraciones aplicadas.")
         elif args.cmd == "seed":
-            print("Contenido de demostración cargado." if seed_all(args.force) else "Ya existe contenido. Usa --force para reintentar.")
+            if args.replace_demo:
+                from sphinx.seed.loader import replace_demo
+                replace_demo()
+                print("Contenido de demostración reemplazado (se borró el progreso en esos cursos). Cuentas intactas.")
+            else:
+                print("Contenido de demostración cargado." if seed_all(args.force) else "Ya existe contenido. Usa --force o --replace-demo.")
         elif args.cmd == "create-admin":
             pw = getpass.getpass("Contraseña (mínimo 12 caracteres): ")
             if len(pw) < 12 or pw != getpass.getpass("Repite la contraseña: "):

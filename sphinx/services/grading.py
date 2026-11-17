@@ -8,8 +8,8 @@ _NUM = re.compile(r"^-?\d{1,12}(\.\d{1,12})?(/\d{1,12})?$")
 
 def normalize_text(s):
     s = unicodedata.normalize("NFKD", str(s or "").casefold())
-    s = "".join(c for c in s if not unicodedata.combining(c))
-    s = re.sub(r"[^\w\s/]", "", s)
+    # se quitan acentos y puntuación, pero se CONSERVAN letras, números, "/" y símbolos/emojis
+    s = "".join(c for c in s if not unicodedata.combining(c) and (c == "/" or not unicodedata.category(c).startswith("P")))
     return re.sub(r"\s+", " ", s).strip()
 
 
@@ -46,6 +46,12 @@ def grade_question(q, response):
         good = sum(1 for i, (_, right) in enumerate(pairs)
                    if i < len(resp) and normalize_text(resp[i]) == normalize_text(right))
         frac = good / len(pairs) if pairs else 0.0
+        return frac, frac == 1.0
+    elif kind == "order":
+        items = data.get("items", [])
+        resp = response if isinstance(response, list) else []
+        good = sum(1 for i, it in enumerate(items) if i < len(resp) and normalize_text(resp[i]) == normalize_text(it))
+        frac = good / len(items) if items else 0.0
         return frac, frac == 1.0
     else:
         ok = False
